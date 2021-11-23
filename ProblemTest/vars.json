@@ -1,0 +1,22 @@
+{
+  "vars": [
+    {
+      "varname": "y",
+      "type": "Real",
+      "description": "ouput var",
+      "inout": "output"
+    },
+    {
+      "varname": "a",
+      "type": "Real",
+      "description": "a",
+      "inout": "input"
+    },
+    {
+      "varname": "b",
+      "type": "Real",
+      "description": "b",
+      "inout": "input"
+    }
+  ]
+}

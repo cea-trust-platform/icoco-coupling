@@ -39,6 +39,7 @@
 %apply bool &OUTPUT { bool& converged };
 
 // Wrap TrioField!
+%include ICoCo_DeclSpec.hxx
 %include ICoCoField.hxx
 #ifdef MEDCOUPLING
   %include "ICoCoMEDDoubleField.hxx"
@@ -64,7 +65,6 @@
   // Functions that will be creating new object which memory is to be managed by Python:
   %newobject ICoCo::ProblemYourCode::getInputMEDFieldTemplate;
   %newobject ICoCo::ProblemYourCode::getOutputMEDField;
-#endif
 
 %extend ICoCo::ProblemYourCode {
 
@@ -89,6 +89,7 @@
     return f->getMCField();
   }
 }
+#endif
 
 // Renaming ValueType enum into ICoCoValueType because Python wrapping discards the namespace "ICoCo"
 // Also handle the funny wrapping of SWIG with "_" (this does not happen in PyBind11)
