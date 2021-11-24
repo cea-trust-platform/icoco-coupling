@@ -1,19 +1,18 @@
 #!/bin/bash
 
-DIR=$(cd $(dirname $0);pwd)
-#${DIR}/ICoCo2FMI.sh $*
+#DIR=$(cd $(dirname $0);pwd)
 reffile=$1
 shift
 mkdir -p test2
 cd test2
 ln -sf ../*fmu .
 rm -f res.csv 
-$DIR/../install/fmuCheck.linux64  -o res.csv  $*
+fmuCheck.linux64  -o res.csv  $*
 status=$?
 cd -
 [ $status -ne 0 ] && echo run KO && exit $status
 
-diff test2/res.csv $reffile
+diff test2/res.csv $reffile > diff.out
 status=$?
 if [ $status -ne 0 ]
 then
