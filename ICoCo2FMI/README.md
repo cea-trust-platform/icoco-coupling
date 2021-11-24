@@ -5,8 +5,11 @@
 
 
 
-ICoCo stands for **Interface for Code Coupling**. This is a norm that a code may choose
-to implement to facilitate its coupling with other ICoCo-compliant codes. This interface allows exchange fields (see MEDCoupling library) and to exchange inside the timestep. See https://github.com/cea-trust-platform/icoco-coupling for full reference.
+ICoCo stands for **Interface for Code Coupling**. This is a norm that a code
+ may implement to facilitate its coupling with other ICoCo-compliant codes.
+ This interface allows complex fields manipulations (see MEDCoupling library) 
+and can implements exchanges inside a timestep (between iterations).
+ See https://github.com/cea-trust-platform/icoco-coupling for full reference.
 
 FMI stands for **Functional Mock-up Interface**. 
 See https://fmi-standard.org/  for full reference.
@@ -15,7 +18,7 @@ See https://fmi-standard.org/  for full reference.
 ## Generating FMI interface version 2.0 for CoSimulation 
 
 
-In order to generate a fmu, we need:
+In order to generate a fmu component, we need:
 
    * a name for the component
 
@@ -26,10 +29,16 @@ In order to generate a fmu, we need:
    * a file describing the in/out variables (see varsfile description)
 
 
-From this informations, we can obtain a my_component.fmu (this component no more needs the data file and the varsfile), using <code>ICoCo2FMI.sh</code>.
+Using these information and the <code>ICoCo2FMI.sh</code> script, we can 
+create a my_component.fmu file (once generated this component doesn't need 
+the data file and the varsfile anymore).
+This can be performed via the following commands:
 
-<code>./ICoCo2FMI.sh --datafile path_to_datafile --varsfile path_to_varsfile --name my_component --library path_to_lib</code>
-
+```
+git clone --branch ICoCo2FMI https://github.com/cea-trust-platform/icoco-coupling
+icoco-coupling/ICoCo2FMI/ICoCo2FMI.sh --datafile path_to_datafile --varsfile path_to_varsfile  \
+                                      --name my_component --library path_to_lib
+```
 
 
 ## varsfile description 
@@ -40,16 +49,17 @@ This file containing the list of the input variables and the output variables, i
 
 For each variable, we need:
 
- * the name (according to ICoCo::Problem::getOutputDoubleValue),
+ * the name (according to ICoCo::Problem::getOutputDoubleValue)
 
- * the type (Real, Integer, or String),
+ * the type (Real, Integer, or String)
 
  * a description
 
- * the inout flag (output or input).
+ * the inout flag (output or input)
 
 
-From this file, the script  <code>ICoCo2FMI.sh</code> generates the modelDescription.xml and a part of the sources for the component.
+From this file, the script <code>ICoCo2FMI.sh</code> (called in the previous section) 
+has generated the modelDescription.xml file and a part of the sources for the component.
 
 ### Example of json file:
 
@@ -90,7 +100,6 @@ In this case, we have:
 Part of the xml generated:
 
 ```xml
-...
 <ModelVariables>
   <ScalarVariable name="flag"
     description="modif flux"
@@ -116,19 +125,21 @@ Part of the xml generated:
        <Real start="0" />
   </ScalarVariable>
 </ModelVariables>
-...
 ```
 
 ## Test 
 
-The component generated has been tested with fmuCheck.linux64 (see https://github.com/modelica-tools/FMUComplianceChecker) and fmpy simulate (see 
-https://fmpy.readthedocs.io/en/latest/).
+The component generated has been tested with fmuCheck.linux64 
+(see https://github.com/modelica-tools/FMUComplianceChecker) 
+and fmpy simulate (see https://fmpy.readthedocs.io/en/latest/).
 
-Exemple:
+Example:
 
-<code> fmuCheck.linux64  -s 100. -h 0.1 -i file_in.csv  my_component.fmu </code>
-
-<code> fmpy simulate  --stop-time 100.  --output-interval 0.1 --show-plot  --input-file file_in.csv --fmi-logging --output-file res.csv  my_component.fmu </code>
+```
+   fmuCheck.linux64  -s 100. -h 0.1 -i file_in.csv  my_component.fmu 
+   fmpy simulate  --stop-time 100.  --output-interval 0.1 --show-plot  --input-file file_in.csv \
+                                        --fmi-logging --output-file res.csv  my_component.fmu
+ ``` 
 
 ##  methods implemented 
 
@@ -141,7 +152,8 @@ Exemple:
 * fmi2GetInteger/fmi2SetInteger (call ICoCo::Problem::getOutputIntValue/ICoCo::Problem::setInputIntValue)
 * fmi2GetString/fmi2SetString (call ICoCo::Problem::getOutputStringValue/ICoCo::Problem::setInputStringValue)
 
-* fmi2DoStep (call ICoCo::Problem::computeTimeStep, ICoCo::Problem::initTimeStep, ICoCo::Problem::solveTimeStep, ICoCo::Problem::validateTimeStep)
+* fmi2DoStep (call ICoCo::Problem::computeTimeStep, ICoCo::Problem::initTimeStep,
+       ICoCo::Problem::solveTimeStep, ICoCo::Problem::validateTimeStep)
 
 * fmi2Terminate
 * fmi2FreeInstance  (call ICoCo::Problem:terminate)
@@ -149,4 +161,4 @@ Exemple:
 
 
 
-The FMI interface is more detailed that the ICoCo Interface for the initialization part, and less for the transient part.
+The FMI interface is more detailed than the ICoCo Interface for the initialization part, and less for the transient part.
