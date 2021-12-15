@@ -107,7 +107,7 @@ int main(int argc, char** argv) {
 
     void* handle;
     Problem *C;
-    C=openLib("./libTest.so",handle);
+    C=openLib("./libProblemTest.so",handle);
     C->setDataFile("Test.dat");
     C->initialize();
     runUntil(C,1);

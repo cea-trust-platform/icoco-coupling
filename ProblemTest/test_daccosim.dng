@@ -1,20 +1,20 @@
 // 2021-12-15T08:18:49.235980Z
 // Generated with Daccosim NG v2.5.1
-FMU step_a "fmu/test_step.fmu"
+FMU step_a "test_step.fmu"
 Output step_a y Real discrete
 Input step_a a Real discrete
 Input step_a b Real discrete
 Input step_a t0 Real discrete
 InitialValue step_a.a 1.0 inInit
 InitialValue step_a.t0 .999 inInit
-FMU step_b "fmu/test_step.fmu"
+FMU step_b "test_step.fmu"
 Output step_b y Real discrete
 Input step_b a Real discrete
 Input step_b b Real discrete
 Input step_b t0 Real discrete
 InitialValue step_b.t0 2.0 inInit
 InitialValue step_b.b 4.0 inInit
-FMU test "fmu/test.fmu"
+FMU test "test.fmu"
 Output test y Real discrete
 Input test a Real discrete
 Input test b Real discrete
