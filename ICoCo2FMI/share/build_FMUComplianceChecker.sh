@@ -7,6 +7,6 @@ mkdir build_FMUComplianceChecker
 cd build_FMUComplianceChecker
 cmake ../FMUComplianceChecker
 # warning install in ../install
-make install
+make install || exit 1
 cd ..
 rm -rf build_FMUComplianceChecker

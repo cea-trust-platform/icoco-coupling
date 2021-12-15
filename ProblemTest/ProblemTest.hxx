@@ -99,7 +99,7 @@ public :
   virtual double getOutputDoubleValue(const std::string& name) const;
   virtual void setInputDoubleValue(const std::string& name, const double& val);
 protected :
-  double _a,_b,_y,_dtmax,_time,_dt,_yp;
+  double _a,_b,_y,_dtmax,_time,_dt,_yp,_t0;
 
 };
 } // namespace ICoCo

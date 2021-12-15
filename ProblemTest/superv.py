@@ -13,7 +13,7 @@
 #
 #****************************************************************************/
 
-// Example of program loading Cathare and running a computation while
+# Example of program loading Cathare and running a computation while
 
 import ProblemTest 
 
@@ -60,7 +60,7 @@ def runUntil(P, tmax):
 
 if 1:
     C = ProblemTest.ProblemTest()
-    C.setDataFile("toto.data")
+    C.setDataFile("toto")
     runUntil(C, 1)
     C.setInputDoubleValue("a",0.);
     runUntil(C,2);

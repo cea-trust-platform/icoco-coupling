@@ -1,0 +1,28 @@
+{
+  "vars": [
+    {
+      "varname": "y",
+      "type": "Real",
+      "description": "ouput var : a if t inf t0 else b",
+      "inout": "output"
+    },
+    {
+      "varname": "a",
+      "type": "Real",
+      "description": "a",
+      "inout": "input"
+    },
+    {
+      "varname": "b",
+      "type": "Real",
+      "description": "b",
+      "inout": "input"
+    },
+    {
+      "varname": "t0",
+      "type": "Real",
+      "description": "t0",
+      "inout": "input"
+    }
+  ]
+}

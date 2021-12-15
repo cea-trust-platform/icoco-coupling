@@ -77,6 +77,7 @@ void ProblemTest::setDataFile(const string& file)
 	_y= 0;
 	_b =0;
 	_dtmax=.1;
+	_t0 = 1.;
 }
 void ProblemTest::setMPIComm(void* mpicomm)
 {
@@ -221,9 +222,17 @@ bool ProblemTest::initTimeStep(double dt)
 // The unknowns are updated over the next time step.
 bool ProblemTest::solveTimeStep()
 {
-  std::cout<<"solveTimeStep " << _time<<" with dt "<< _dt<<  std::endl;
   //explicit _yp = _y + _dt* (_a - _b * _y  );
+#ifdef _step_
+  if (_time+_dt<_t0)
+	  _yp = _a;
+  else
+	  _yp = _b ;
+  std::cout<<"solveTimeStep " << _time<<" t0 "<< _t0<< " step : " <<_yp << " a "<< _a <<std::endl;
+#else
+  std::cout<<"solveTimeStep " << _time<<" with dt "<< _dt<<  std::endl;
   _yp = (_y + _dt* _a)/(1 + _dt* _b );
+#endif
 
   return true;
 }
@@ -422,6 +431,10 @@ void ProblemTest::setInputDoubleValue(const std::string& name, const double& val
 		_a=val;
 	else if (name=="b")
 		_b=val;
+#ifdef _step_
+	else if (name=="t0")
+		_t0=val;
+#endif
 	else if (name=="dt_max")
 		_dtmax=val;
 	else
@@ -430,6 +443,15 @@ void ProblemTest::setInputDoubleValue(const std::string& name, const double& val
 		std::cout<< "ignored...."<<std::endl;
 		//throw;
 	}
+#ifdef _step_
+	if (_time==0) 
+	{
+          if (0<_t0)
+	   _y = _a;
+          else
+	   _y = _b ;
+	}
+#endif
 }
 double ProblemTest::getOutputDoubleValue(const std::string& name) const
 {
