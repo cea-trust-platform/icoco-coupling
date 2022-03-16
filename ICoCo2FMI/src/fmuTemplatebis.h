@@ -165,6 +165,9 @@ typedef struct {
     std::vector<std::string>* names_Real;
     std::vector<std::string>* names_Integer;
     std::vector<std::string>* names_String;
+    std::vector<bool>* input_Real;
+    std::vector<bool>* input_Integer;
+    std::vector<bool>* input_String;
 } ModelInstance;
 
 #ifdef __cplusplus

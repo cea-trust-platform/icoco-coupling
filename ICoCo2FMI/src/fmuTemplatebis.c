@@ -284,6 +284,9 @@ void fmi2FreeInstance(fmi2Component c) {
     delete comp->names_Real;
     delete comp->names_Integer;
     delete comp->names_String;
+    delete comp->input_Real;
+    delete comp->input_Integer;
+    delete comp->input_String;
     if (invalidState(comp, "fmi2FreeInstance", MASK_fmi2FreeInstance))
         return;
     FILTERED_LOG(comp, fmi2OK, LOG_FMI_CALL, "fmi2FreeInstance")
@@ -440,9 +443,15 @@ fmi2Status fmi2SetReal (fmi2Component c, const fmi2ValueReference vr[], size_t n
          std::cout<<" vars.txt not up to date ?"<<std::endl;
          return fmi2Error;
        }
-     (comp->pb)->setInputDoubleValue(comp->names_Real->operator[](var),value[i]);
-
-     FILTERED_LOG(comp, fmi2OK, LOG_FMI_CALL, "fmi2SetReal: #r%d# = %.16g", vr[i], value[i])
+     if (comp->input_Real->operator[](var))
+       {
+         (comp->pb)->setInputDoubleValue(comp->names_Real->operator[](var),value[i]);
+         FILTERED_LOG(comp, fmi2OK, LOG_FMI_CALL, "fmi2SetReal: #r%d# = %.16g", vr[i], value[i])
+       }
+     else
+       {
+         printf("try to write in real var %d not input var! \n", var);
+       }
     }
     return fmi2OK;
 }
@@ -465,8 +474,16 @@ fmi2Status fmi2SetInteger(fmi2Component c, const fmi2ValueReference vr[], size_t
          std::cout<<" vars.txt not up to date ?"<<std::endl;
          return fmi2Error;
        }
-     (comp->pb)->setInputIntValue(comp->names_Integer->operator[](var),value[i]);
-     FILTERED_LOG(comp, fmi2OK, LOG_FMI_CALL, "fmi2SetInteger: #i%d# = %d", vr[i], value[i])
+     if (comp->input_Integer->operator[](var))
+       {
+         (comp->pb)->setInputIntValue(comp->names_Integer->operator[](var),value[i]);
+         FILTERED_LOG(comp, fmi2OK, LOG_FMI_CALL, "fmi2SetInteger: #i%d# = %d", vr[i], value[i])
+       }
+     else
+       {
+         printf("try to write in integer var %d not input var! \n", var);
+       }
+     
     }
     return fmi2OK;
 }
@@ -487,14 +504,21 @@ fmi2Status fmi2SetString (fmi2Component c, const fmi2ValueReference vr[], size_t
     FILTERED_LOG(comp, fmi2OK, LOG_FMI_CALL, "fmi2SetString: nvr = %d", nvr)
 
     for (i=0; i<nvr; i++) {
-    FILTERED_LOG(comp, fmi2OK, LOG_FMI_CALL, "fmi2SetString: #s%d# = '%s'", vr[i], value[i]);
      int var=vr[i];
      if ((var>=comp->names_String->size())|| (comp->names_String->operator[](var)==std::string()) )
        {
          std::cout<<" vars.txt not up to date ?"<<std::endl;
          return fmi2Error;
        }
-        (comp->pb)->setInputStringValue(comp->names_String->operator[](var).c_str(),strdup(value[i]));
+     if (comp->input_String->operator[](var))
+       {
+          (comp->pb)->setInputStringValue(comp->names_String->operator[](var).c_str(),strdup(value[i]));
+          FILTERED_LOG(comp, fmi2OK, LOG_FMI_CALL, "fmi2SetString: #s%d# = '%s'", vr[i], value[i]);
+       }
+     else
+       {
+         printf("try to write in string var %d not input var! \n", var);
+       }
     }
     return fmi2OK;
 }

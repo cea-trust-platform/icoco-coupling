@@ -27,9 +27,16 @@ f = open("vars_def.h", "w")
 for t in Types:
     f.write(" comp->names_%s = new std::vector<std::string>(%d);\n"
             % (t, len(vartype[t])))
+    f.write(" comp->input_%s = new std::vector<bool>(%d);\n"
+            % (t, len(vartype[t])))
     for i, var in enumerate(vartype[t]):
         f.write(' comp->names_%s->operator[](%d)=\"' % (t, i) +
                 var['varname'] + '\";\n')
+        f.write(' comp->input_%s->operator[](%d)=' % (t, i))
+        if var['inout'] == 'input':
+            f.write('true;\n')
+        else:
+            f.write('false;\n')
 
 MODEL_NAME = sys.argv[2]
 MODEL_GUID = sys.argv[3]
@@ -70,16 +77,16 @@ template_var = {}
 template_var['output'] = """<ScalarVariable name="__name__"
        description="__description__"
        valueReference="__valueReference__"
-       causality="__causality__" 
-       variability="discrete" 
+       causality="__causality__"
+       variability="discrete"
        initial='exact'>
-       <__type__ start="0" />
+       <__type__ start="0"/>
   </ScalarVariable>
 """
 template_var['input'] = """<ScalarVariable name="__name__"
     description="__description__"
     valueReference="__valueReference__"
-    causality="__causality__" 
+    causality="__causality__"
     variability="discrete" >
     <__type__ start="0"/>
   </ScalarVariable>
