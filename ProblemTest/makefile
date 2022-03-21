@@ -34,7 +34,7 @@ clean:
 	rm -f res*csv test*.fmu superv *.so ProblemTest.i ProblemTest.py   ProblemTest_wrap.*
 	rm -fr build/ -r res*.txt toto.data* test_daccosim-2* build2 __pycache__ ProblemTestPYTHON_wrap.cxx
 daccosim: test_step.fmu test.fmu
-	java -jar daccosim-shell-2021-v2.5.1.jar input:test_daccosim.dng
+	java -jar daccosim-shell-2022-v2.7.0.jar input:test_daccosim.dng
 	sed "s/,/ /g;s/;/ /g;s/^time/#time/" `ls -rt test_daccosim-2*csv | tail -1`  > res_dacco.txt
 graph:
 	xmgrace -free -noask -nxy res_dacco*.txt res.*.txt

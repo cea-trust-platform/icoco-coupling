@@ -450,7 +450,8 @@ fmi2Status fmi2SetReal (fmi2Component c, const fmi2ValueReference vr[], size_t n
        }
      else
        {
-         printf("try to write in real var %d not input var! \n", var);
+         double v=(comp->pb)->getOutputDoubleValue(comp->names_Real->operator[](var));
+         printf("try to write %f in real var %s not input var! %f\n", value[i], comp->names_Real->operator[](var).c_str(), v);
        }
     }
     return fmi2OK;

@@ -441,23 +441,23 @@ void ProblemTest::setInputDoubleValue(const std::string& name, const double& val
 	{
 		std::cout<<" try to set var "<< name<< " with "<<val<<std::endl;
 		std::cout<< "ignored...."<<std::endl;
-		//throw;
+		throw;
 	}
+}
+double ProblemTest::getOutputDoubleValue(const std::string& name) const
+{
 #ifdef _step_
 	if (_time==0) 
 	{
           if (0<_t0)
-	   _y = _a;
+	   return _a;
           else
-	   _y = _b ;
+	   return  _b ;
 	}
 #endif
-}
-double ProblemTest::getOutputDoubleValue(const std::string& name) const
-{
   if (name=="y")
     return _y;
- std::cout<<" Tyy to get "<< name<< " ... return -1e99"<<std::endl;
+ std::cout<<" Try to get "<< name<< " ... return -1e99"<<std::endl;
   return -1e99;
 }
 #if 0

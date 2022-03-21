@@ -15,20 +15,22 @@
 
 // Example of program loading Cathare and running a computation while
 #include <ICoCoProblem.hxx>
-#include <dlfcn.h>
 #include <iostream>
 #include <stdlib.h>
 #include <string.h>
 
 using namespace std;
 using ICoCo::Problem;
-
+#ifndef _NO_DL_OPEN
 // Open a shared library
 // Find the function getProblem
 // Run it and return a pointer to the Problem
 // Prints the errors if any
 
+#include <dlfcn.h>
+#endif
 Problem* openLib(const char* libname, void* & handle) {
+#ifndef _NO_DL_OPEN
     Problem *(*getProblem)();
     handle=dlopen(libname, RTLD_LAZY | RTLD_LOCAL);
     if (!handle) {
@@ -42,16 +44,21 @@ Problem* openLib(const char* libname, void* & handle) {
         throw 0;
     }
     return (*getProblem)();
+#else
+    return getProblem();
+#endif
 }
 
 // Close a shared library
 // Prints the errors if any
 
 void closeLib(void* handle) {
+#ifndef _NO_DL_OPEN
     if (dlclose(handle)) {
         cout << dlerror() << endl;
         throw 0;
     }
+#endif
 }
 
 // Performs a simple time loop on Problem P :
