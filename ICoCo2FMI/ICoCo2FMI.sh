@@ -41,6 +41,7 @@ done
 [ "$varsfile" = "" ] && echo varsfile not set && usage && exit 1
 [ "$MODEL_NAME" = "" ] && echo MODEL_NAME not set && usage && exit 1
 [ "$ICOCOLIB" = "" ] && echo ICOCOLIB not set && usage && exit 1
+[ ! -f "$ICOCOLIB"  ] && echo $ICOCOLIB not exits or is not a file && usage && exit 1
 
 
 #echo $datafile $varsfile $MODEL_NAME $ICOCOLIB
