@@ -2,7 +2,6 @@ from __future__ import print_function
 
 import json
 
-
 import sys
 
 with open(sys.argv[1]) as json_file:
@@ -23,11 +22,11 @@ for var in data['vars']:
         vartype[tt].append(var)
     except KeyError:
         raise Exception(tt+" not implemented")
-lv=[]
+lv = []
 for v in data['vars']:
-    d =v['varname']
+    d = v['varname']
     if d in lv:
-        print(d+" already defined !!!!.\nCheck your file "+ sys.argv[1])
+        print(d + " already defined !!!!.\nCheck your file " + sys.argv[1])
         sys.exit(1)
     else:
         lv.append(d)

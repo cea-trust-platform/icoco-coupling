@@ -54,21 +54,8 @@ echo " #define MODEL_IDENTIFIERi ${MODEL_NAME}
 #define MODEL_GUID \"${MODEL_GUID}\"" > define_model.h
 
 python $DIR/src/generate_files_from_json.py $varsfile $MODEL_NAME $MODEL_GUID || exit 1
+python $DIR/src/generate_writeDataFile.py $datafile  || exit 1
 
-
-echo "#include <fstream>
-void    writeDataFile(std::string& datafile)
-{
-datafile=\"$(basename $datafile)\";
-std::ofstream f(datafile.c_str());" > writeDataFile.h
-
-while read line 
-  do
-  echo "f <<\"$line\"<<std::endl;"
-done < $datafile  >> writeDataFile.h
-
-echo "f.close();
-}"  >>   writeDataFile.h
 
 
 
