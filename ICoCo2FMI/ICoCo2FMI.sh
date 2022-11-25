@@ -75,8 +75,18 @@ mkdir -p build
 for f in vars_def.h modelDescription_cs.xml  writeDataFile.h define_model.h
   do
   mv -f $f build
-done
-(cd build; cmake $DIR/src -DCMAKE_BUILD_TYPE=Debug -DICOCODIR=$ICOCOINC -DICOCOLIB=$ICOCOLIB -DMODEL_NAME=$MODEL_NAME; make VERBOSE=1 ) || exit 2
+done 
+
+# detection of old ABI
+OLDABI=""
+met=$(nm -C $ICOCOLIB | grep ICoCo::Problem::setData )
+if [ "`echo $met | grep cxx11`" = "" ]
+then
+  echo "old ABI"
+  OLDABI="-DFORCE_OLD_ABI=ON"
+fi
+
+(cd build; cmake $DIR/src -DCMAKE_BUILD_TYPE=Debug -DICOCODIR=$ICOCOINC -DICOCOLIB=$ICOCOLIB -DMODEL_NAME=$MODEL_NAME $OLDABI; make VERBOSE=1 ) || exit 2
 mv build/$MODEL_NAME.fmu .
 
 echo

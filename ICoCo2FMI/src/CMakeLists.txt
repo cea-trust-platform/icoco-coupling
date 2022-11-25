@@ -25,7 +25,10 @@ set(FMI_TYPE cs )
 set(TARGET_NAME ${MODEL_NAME}_${FMI_VERSION}_${FMI_TYPE})
 
 file (GLOB srcs  ICoCoFMI.cpp *.h ) 
-
+if (FORCE_OLD_ABI)
+  message("Forcing not use GLIBCXX_USE_CXX11_ABI")
+  add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
+endif()
 add_library(${TARGET_NAME} SHARED ${srcs}  modelDescription_${FMI_TYPE}.xml)
 
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/fmu${FMI_VERSION}/${FMI_TYPE})
