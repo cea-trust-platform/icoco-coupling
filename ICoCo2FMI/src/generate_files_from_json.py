@@ -23,6 +23,14 @@ for var in data['vars']:
         vartype[tt].append(var)
     except KeyError:
         raise Exception(tt+" not implemented")
+lv=[]
+for v in data['vars']:
+    d =v['varname']
+    if d in lv:
+        print(d+" already defined !!!!.\nCheck your file "+ sys.argv[1])
+        sys.exit(1)
+    else:
+        lv.append(d)
 f = open("vars_def.h", "w")
 for t in Types:
     f.write(" comp->names_%s = new std::vector<std::string>(%d);\n"
