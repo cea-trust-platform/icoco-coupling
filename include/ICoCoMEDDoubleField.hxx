@@ -21,7 +21,7 @@ namespace ICoCo
   /*! @brief Field data stored internally as a MEDCoupling object.
    *
    * This class is a wrapper around a MEDCoupling::MEDCouplingFieldDouble object, which holds the field data.
-   * In version 2 of ICoCo, MEDCoupling::MEDCouplingFieldDouble objects are not anymore exposed directly into the API
+   * From version 2 of ICoCo, MEDCoupling::MEDCouplingFieldDouble objects are not anymore exposed directly into the API
    * of ICoCo::Problem. The rationale is to make the interface ICoCo::Problem free of external dependencies
    * (MEDCoupling particularly).
    *

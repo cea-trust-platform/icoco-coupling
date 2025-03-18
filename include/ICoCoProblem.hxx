@@ -1,5 +1,5 @@
 // ICoCo file common to several codes
-// Version 2 -- 02/2021
+// Version 3 -- 03/2025
 //
 // WARNING: this file is part of the official ICoCo API and should not be modified.
 // The official version can be found at the following URL:
@@ -12,8 +12,8 @@
 #ifdef ICOCO_VERSION
 #   error "ICOCO_VERSION already defined!! Are you including twice two versions of the ICoCo interface?"
 #else
-#   define ICOCO_VERSION "2.0"
-#   define ICOCO_MAJOR_VERSION 2
+#   define ICOCO_VERSION "3.0"
+#   define ICOCO_MAJOR_VERSION 3
 #   define ICOCO_MINOR_VERSION 0
 #endif
 
@@ -29,18 +29,22 @@ namespace ICoCo
   class MEDDoubleField;
   class MEDIntField;
   class MEDStringField;
+  class MEDDoubleArray;
+  class MEDIntArray;
+  class MEDStringArray;
+  class AlgebraicData;
   class TrioField;
 
   /*! @brief The various possible types for fields or scalar values.
    */
-  enum class ValueType
+  enum class ValueType  // ### TODO: Expliciter les valeurs des enums permet de les reprendre en Python sans trop de risque. ###
   {
-    Double,  ///< Double scalar value or field type
-    Int,     ///< Int scalar value or field type
-    String   ///< String scalar value or field type
+    Double = 0,  ///< Double scalar value or field type
+    Int = 1,     ///< Int scalar value or field type
+    String = 2   ///< String scalar value or field type
   };
 
-  /*! @brief API that a code has to implement in order to comply with the ICoCo (version 2) norm.
+  /*! @brief API that a code has to implement in order to comply with the ICoCo (version 3) norm.
    *
    * This abstract class represents the methods that a given code may implement to comply (partially or fully) to the
    * ICoCo standard. For organization and documentation purposes the interface is separated into several sections but
@@ -51,20 +55,57 @@ namespace ICoCo
    *   - Scalar values I/O
    * are not always needed since a code might not have any integer field to work with for example.
    * Consequently, default implementation for all methods of this interface is to raise an ICoCo::NotImplemented
-   * exception.
+   * exception. ### TODO: ne devrait-on pas mettre en virtuelle pure les quelques methodes obligatoires? ###
    *
-   * Some of the methods may not be called when some conditions are not met (i.e. when not in the correct context). Thus
-   * in this documentation we define the "TIME_STEP_DEFINED context" as the context that the code finds itself, when the method
-   * initTimeStep() has been called, and the method validateTimeStep() (or abortTimeStep()) has not yet been called.
-   * This is the status in which the current computation time step is well defined.
    *
-   * Within the computation of a time step (so within TIME_STEP_DEFINED), the temporal semantic of the fields (and
-   * scalar values) is not imposed by the norm. Said differently, it does not require the fields to be defined at the
-   * start/middle/end of the current time step, this semantic must be agreed on between the codes being coupled.
-   * Fields and scalar values that are set within the TIME_STEP_DEFINED context are invalidated (undefined behavior)  
-   * after a call to validateTimeStep() (or abortTimeStep()). They need to be set at each time step. However, fields and scalar 
-   * values that are set outside of this context (before the first time step for example, or after the resolution of the last 
-   * time step) are permanent (unless modified afterward within the TIME_STEP_DEFINED context).
+   * Some of the methods may not be called (or have a different behavior) when some conditions are not met. Thus
+   * in this documentation we define the "CALCULATION_DEFINED context" as the context that the code finds itself, when the
+   * method initTimeStep() or initStationary() has been called, and the method validateTimeStep() / validateStationary()
+   * (or abortTimeStep() / abortStationary()) has not yet been called. A CALCULATION_DEFINED context opened with initTimeStep()
+   * is also called TIME_STEP_DEFINED and a CALCULATION_DEFINED context opened with initStationary() is also called
+   * STATIONARY_DEFINED.
+   *
+   * Fields and scalar values that are set within the CALCULATION_DEFINED context are invalidated (undefined behavior) after
+   * the context has been closed. They need to be set at each calculation. However, fields and scalar values that are set outside
+   * of this context (before the first time step for example, or after the resolution of the last time step) are permanent
+   * (unless modified afterward within the CALCULATION_DEFINED context).
+   *
+   * Within the CALCULATION_DEFINED context, calling a solving methods (solveTimeStep(), iterateTimeStep(), solveStationary(), or
+   * iterateStationary()) updates available scalar and field outputs, even if validation (validateTimeStep() or
+   * validateStationary()) has not been called yet.
+   *
+   *
+   * Objects returned by ICoCo, WITH THE EXCEPTION OF MED FIELD UNDERLYING MESHES, are copied by the methods returning them,
+   * transferring their responsibility to the caller. They can be freely modified or deleted by the caller. Field underlying
+   * meshes, however, should not be copied if possible. The caller must therefore refrain from deleting or modifying them.
+   * CAUTION: update methods like updateOutputMEDDoubleField() write data in place.
+   * ### TODO: Est-ce qu'on ne supprimerait pas toutes les fonctions update du coup ? ###
+   *
+   *
+   * Some codes solve a large number of equations, and it can be useful to drive the resolution of these equations separately.
+   * In this case, a first solution may be to expose completely separated ICoCo interfaces. Solving each set of equations then
+   * behaves like a different “code”. However, this is not always possible to go that far, and for this reason we introduce the
+   * notion of mode. For example, a code solving equations A and B may exhibit modes “A”, “B” (these modes are referred to
+   * hereafter as elementary) and “A + B” (compound mode, solving the coupling between A and B). All possible calculation types
+   * must have an elementary mode (in the previous example, mode “B” is mandatory if “A” and “A + B” exist).
+   *
+   * A mode is activated by setting a scalar value (int or string).
+   *
+   * When a mode is selected outside the CALCULATION_DEFINED context, the resolution methods (and only these methods) become
+   * specific to that mode (and have no impact on elementary modes not included in the selected mode). In particular,
+   * presentTime() depends on the selected mode. For example, if mode “A” is selected just after initialize(), and three time
+   * steps of duration 1 are solved in this mode, presentTime() in mode A must return 3, but presentTime() in mode B must return
+   * 0. It should not be possible to select a compound mode whose elementary modes are not synchronized.
+   *
+   * A mode can also be selected within the CALCULATION_DEFINED context. In this case, only the modes included in the (compound)
+   * mode selected when the context was opened can be selected. The context can only be closed in the mode selected when opened.
+   *
+   *
+   * Within the computation of a time step (so within TIME_STEP_DEFINED context), the temporal semantics of data (any kind of
+   * data like fields or scalars) is not imposed by the norm. Said differently, it does not require the data to be defined at the
+   * start/middle/end of the current time step, this semantics must be agreed on between the codes being coupled.
+   * Methods getXXXTimeSemantics() can be implemented to help achieve this agreement.
+   *
    *
    * Finally, the ICoCo interface may be wrapped in Python using SWIG or PyBind11. For an example of the former see the
    * TRUST implementation of ICoCo. Notably the old methods returning directly MEDCoupling::MEDCouplingFieldDouble objects
@@ -75,7 +116,7 @@ namespace ICoCo
 
   public :
     /*! @brief Return ICoCo interface major version number.
-     * @return ICoCo interface major version number (2 at present)
+     * @return ICoCo interface major version number (3 at present)
      */
     static int GetICoCoMajorVersion() { return ICOCO_MAJOR_VERSION; }
 
@@ -136,9 +177,21 @@ namespace ICoCo
      * No other ICoCo method except setDataFile(), setMPIComm() and initialize() may be called after this.
      *
      * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
-     * @throws ICoCo::WrongContext exception if called inside the TIME_STEP_DEFINED context (see Problem documentation).
+     * @throws ICoCo::WrongContext exception if called inside the CALCULATION_DEFINED context (see Problem documentation).
      */
     virtual void terminate();
+
+    /*! @brief (Optional) Return an error message related to the last failure return (False to initialize() or solveTimeStep()
+     * for example).
+     *
+     * New in version 3 of ICoCo.
+     *
+     * Can be called any time between initialize() and terminate().
+     *
+     * @return message related to the last failure return.
+     * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
+     */
+    virtual std::string getLastErrorMessage() const;
 
     // ******************************************************
     // section TimeStepManagement
@@ -154,140 +207,161 @@ namespace ICoCo
      */
     virtual double presentTime() const;
 
-    /*! @brief (Mandatory) Return the next preferred time step (time increment) for this code, and whether the code
-     * wants to stop.
+    /*! @brief (Mandatory if initTimeStep() is implemented) Return the next preferred time step (time increment) for this code
+     * (starting from presentTime()), and whether the code wants to stop.
      *
      * Both data are only indicative, the supervisor is not required to take them into account. This method is
      * however marked as mandatory, since most of the coupling schemes expect the code to provide this
      * information (those schemes then typically compute the minimum of the time steps of all the codes being coupled).
      * Hence a possible implementation is to return a huge value, if a precise figure can not be computed.
      *
-     * Can be called whenever the code is outside the TIME_STEP_DEFINED context (see Problem documentation).
+     * Can be called whenever the code is outside the CALCULATION_DEFINED context (see Problem documentation).
      *
-     * @param[out] stop set to true if the code wants to stop. It can be used for example to indicate that, according to 
+     * It can also be called inside TIME_STEP_DEFINED context. This is typically used to suggest a new time step for a second
+     * attempt after a first failed resolution (the call is then made between a failed solveTimeStep() and abortTimeStep()).
+     *
+     * The method cannot be called inside STATIONARY_DEFINED context.
+     *
+     * @param[out] stop set to true if the code wants to stop. It can be used for example to indicate that, according to
      * a certain criterion, the end of the transient computation is reached from the code point of view.
      * @return the preferred time step for this code (only valid if stop is false).
-     * @throws ICoCo::WrongContext exception if called inside the TIME_STEP_DEFINED context (see Problem documentation).
+     * @throws ICoCo::WrongContext exception if called inside the STATIONARY_DEFINED context (see Problem documentation).
      * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
      */
     virtual double computeTimeStep(bool& stop) const;
 
-    /*! @brief (Mandatory) Provide the next time step (time increment) to be used by the code.
+    /*! @brief (Optional) Provide the next time step (time increment) to be used by the code.
      *
      * After this call (if successful), the computation time step is defined to ]t, t + dt] where t is the value
-     * returned by presentTime(). The code enters the TIME_STEP_DEFINED context.
-     * A time step = 0. may be used when the stationaryMode is set to true for codes solving directly for 
-     * the steady-state.
+     * returned by presentTime().
      *
-     * @param[in] dt the time step to be used by the code
+     * Can be called outside the CALCULATION_DEFINED context (see Problem documentation). In this case, the code enters the
+     * CALCULATION_DEFINED (TIME_STEP_DEFINED) context.
+     *
+     * ### TODO: Autoriser d'appeler initTimeStep dans le contexte TIME_STEP_DEFINED pour recommencer un calcul qui ne necessite pas vraiment un abort avec un pas de temps different ? Proposition : ###
+     * If the code is able to repeat the computation of a time step, calling this method inside the TIME_STEP_DEFINED context
+     * is also possible. This is similar to calling abortTimeStep() then initTimeStep(), but the internal state of the code
+     * may be left unchanged. This solution is useful when one needs to modify the time step but the code is not in a corrupted
+     * state.
+     *
+     * @param[in] dt the time step to be used by the code. Must be > 0.0.
      * @return false means that given time step is not compatible with the code time scheme.
      *
      * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
-     * @throws ICoCo::WrongContext exception if called inside the TIME_STEP_DEFINED context (see Problem documentation).
-     * @throws ICoCo::WrongContext exception if called several times without resolution.
-     * @throws ICoCo::WrongArgument exception if dt is invalid (dt < 0.0).
+     * // @throws ICoCo::WrongContext exception if called inside the CALCULATION_DEFINED context (see Problem documentation).
+     * @throws ICoCo::WrongArgument exception if dt is invalid (dt <= 0.0).
      */
     virtual bool initTimeStep(double dt);
 
-    /*! @brief (Mandatory) Perform the computation on the current time interval.
+    /*! @brief (Mandatory if initTimeStep() is implemented) Perform the computation on the current time interval.
      *
-     * Can be called whenever the code is inside the TIME_STEP_DEFINED context (see Problem documentation).
+     * Can be called (only once) whenever the code is inside the TIME_STEP_DEFINED context (see Problem documentation).
      *
      * @return true if computation was successful, false otherwise.
      * @throws ICoCo::WrongContext exception if called outside the TIME_STEP_DEFINED context (see Problem documentation).
-     * @throws ICoCo::WrongContext exception if called several times without a call to validateTimeStep() or to 
+     * @throws ICoCo::WrongContext exception if called several times without a call to validateTimeStep() or to
      * abortTimeStep().
      */
     virtual bool solveTimeStep();
 
-    /*! @brief (Mandatory) Validate the computation performed by solveTimeStep.
+    /*! @brief (Mandatory if initTimeStep() is implemented) Validate the computation performed by solveTimeStep() or
+     * iterateTimeStep().
      *
-     * Can be called whenever the code is inside the TIME_STEP_DEFINED context (see Problem documentation).
+     * Can be called when the code is inside the TIME_STEP_DEFINED context (see Problem documentation), if solveTimeStep() or
+     * iterateTimeStep() have been called.
+     *
      * After this call:
-     * - the present time has been advanced to the end of the computation time step
-     * - the computation time step is undefined (the code leaves the TIME_STEP_DEFINED context).
+     * - the present time is advanced to the end of the computation time step
+     * - the computation time step is undefined (the code leaves the TIME_STEP_DEFINED (and CALCULATION_DEFINED) context).
      *
      * @throws ICoCo::WrongContext exception if called outside the TIME_STEP_DEFINED context (see Problem documentation).
-     * @throws ICoCo::WrongContext exception if called before the solveTimeStep() method.
+     * @throws ICoCo::WrongContext exception if called before solveTimeStep() or iterateTimeStep() methods.
      * @sa abortTimeStep()
      */
     virtual void validateTimeStep();
 
-    /*! @brief (Mandatory) Set whether the code should compute a stationary solution or a transient one.
+    /*! @brief (Mandatory if initTimeStep() is implemented) Set whether the next time step calculations will be performed to
+     * obtain an stationary solution or if we are really interested in the transient.
      *
-     * New in version 2 of ICoCo. By default the code is assumed to be in stationary mode False (i.e. set up
-     * for a transient computation).
-     * If set to True, solveTimeStep() can be used either to solve a time step in view of an asymptotic solution,
-     * or to solve directly for the steady-state. In this last case, a time step = 0. can be used with initTimeStep()
-     * (whose call is always needed). 
-     * The stationary mode status of the code can only be modified by this method (or by a call to terminate() 
+     * By default the code is assumed to be in stationary mode false (i.e. set up for a transient computation).
+     * If set to true, solveTimeStep() (or iterateTimeStep()) methods solve a time step in view of an asymptotic solution.
+     * In this mode, the code is allowed to produce a wrong transient in order to speed up the convergence to the steady-state.
+     * This typically allows to reduce certain inertial terms.
+     *
+     * The stationary mode status of the code can only be modified by this method (or by a call to terminate()
      * followed by initialize()).
      *
-     * Can be called whenever the code is outside the TIME_STEP_DEFINED context (see Problem documentation).
+     * Can be called whenever the code is outside the CALCULATION_DEFINED context (see Problem documentation).
      *
      * @param[in] stationaryMode true if the code should compute a stationary solution.
      *
-     * @throws ICoCo::WrongContext exception if called inside the TIME_STEP_DEFINED context (see Problem documentation).
+     * @throws ICoCo::WrongContext exception if called inside the CALCULATION_DEFINED context (see Problem documentation).
      * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
      */
     virtual void setStationaryMode(bool stationaryMode);
 
-    /*! @brief (Mandatory) Indicate whether the code should compute a stationary solution or a transient one.
+    /*! @brief (Mandatory if initTimeStep() is implemented) Indicate whether the code is in stationary mode or not.
      *
      * See also setStationaryMode().
      *
-     * Can be called whenever the code is outside the TIME_STEP_DEFINED context (see Problem documentation).
+     * Can be called whenever. ### TODO: Je ne vois pas de raison de mettre un contexte au get ? ###
      *
      * @return true if the code has been set to compute a stationary solution.
      *
-     * @throws ICoCo::WrongContext exception if called inside the TIME_STEP_DEFINED context (see Problem documentation).
      * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
      */
     virtual bool getStationaryMode() const;
 
-    /*! @brief (Optional) Return whether the solution is constant on the computation time step.
+    /*! @brief (Optional) Return whether the code has reached a stationary solution.
      *
-     * Used to know if the steady-state has been reached. This method can be called whenever the computation time step
-     * is not defined.
+     * Can be called whenever the code is outside the CALCULATION_DEFINED context (see Problem documentation).
      *
-     * @return true if the solution is constant on the computation time step.
+     * @return true if the code has reached a stationary solution.
      * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
-     * @throws ICoCo::WrongContext exception  if called inside the TIME_STEP_DEFINED context (see Problem documentation),
-     * meaning we shouldn't request this information while the computation of a new time step is in progress.
+     * @throws ICoCo::WrongContext exception if called inside the CALCULATION_DEFINED context (see Problem documentation).
      */
     virtual bool isStationary() const;
 
     /*! @brief (Optional) Abort the computation on the current time step.
      *
-     * Can be called whenever the computation time step is defined, instead of validateTimeStep().
-     * After this call, the present time is left unchanged, and the computation time step is undefined
-     * (the code leaves the TIME_STEP_DEFINED context).
+     * Can be called whenever the code is inside the TIME_STEP_DEFINED context (see Problem documentation).
+     * The code then leaves the TIME_STEP_DEFINED (and CALCULATION_DEFINED) context.
      *
-     * @throws ICoCo::WrongContext exception if called outside the TIME_STEP_DEFINED context (see Problem documentation).
+     * After this call, the code must return to its state just before the previous initTimeStep() call.
+     * Everything that has happened since that call must be forgotten. In particular, what was set to the code should be
+     * forgotten, and outputs produced by the code must get back their previous values.
+     *
+     * This method is designed to get out a code from a corrupted state. Use iterateTimeStep() instead to repeat the calculation
+     * of a time step.
+     *
+     * @throws ICoCo::WrongContext exception if called outside the CALCULATION_DEFINED context (see Problem documentation).
      * @sa validateTimeStep()
      */
     virtual void abortTimeStep();
 
-    /*! @brief (Optional) Reset the current time of the Problem to a given value.
+    /*! @brief (Optional) Reset the current time of the Problem to a given value. ### TODO: passer en obligatoire ??? ###
      *
-     * New in version 2 of ICoCo.
      * Particularly useful for the initialization of complex transients: the starting point of the transient
      * of interest is computed first, the time is reset to 0, and then the actual transient of interest starts with proper
      * initial conditions, and global time 0.
      *
-     * Can be called outside the TIME_STEP_DEFINED context (see Problem documentation).
+     * Can be called whenever the code is outside the CALCULATION_DEFINED context (see Problem documentation).
      *
      * @param[in] time the new current time.
      * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
-     * @throws ICoCo::WrongContext exception if called inside the TIME_STEP_DEFINED context (see Problem documentation)
+     * @throws ICoCo::WrongContext exception if called inside the CALCULATION_DEFINED context (see Problem documentation)
      */
     virtual void resetTime(double time);
 
-    /*! @brief  (Optional) Perform a single iteration of computation inside the time step.
+    /*! @brief (Mandatory if abortTimeStep() is implemented) Similar to solveTimeStep() but can be called several times.
      *
-     * This method is relevant for codes having inner iterations for the computation of a single time step.
-     * Calling iterateTimeStep() until converged is true is equivalent to calling solveTimeStep(), within the code's
-     * convergence threshold.
+     * This method allows to repeat the computation of a given time step without calling abortTimeStep(). It is designed for
+     * iterative coupling algorithms.
+     *
+     * The method may behave a little differently from solveTimeStep(). The maximum number of iterations of the internal solving
+     * method can typically be different. However, calling iterateTimeStep() until converged is true must be equivalent to
+     * calling solveTimeStep(), within the code convergence threshold.
+     *
      * Can be called (potentially several times) inside the TIME_STEP_DEFINED context (see Problem documentation).
      *
      * @param[out] converged set to true if the solution is not evolving any more.
@@ -298,6 +372,89 @@ namespace ICoCo
     virtual bool iterateTimeStep(bool& converged);
 
     // ******************************************************
+    // section StationaryManagement
+    // ******************************************************
+
+    /*! @brief (Optional) Get the code ready to compute a stationary solution.
+     *
+     * New in version 3 of ICoCo.
+     *
+     * The code enters the CALCULATION_DEFINED (STATIONARY_DEFINED) context.
+     *
+     * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
+     * @throws ICoCo::WrongContext exception if called inside the CALCULATION_DEFINED context (see Problem documentation).
+     */
+    virtual void initStationary();
+
+    /*! @brief (Mandatory if initStationary() is implemented) Perform the computation of a stationary solution.
+     *
+     * New in version 3 of ICoCo.
+     *
+     * Can be called (only once) whenever the code is inside the STATIONARY_DEFINED context (see Problem documentation).
+     *
+     * @return true if computation was successful, false otherwise.
+     * @throws ICoCo::WrongContext exception if called outside the STATIONARY_DEFINED context (see Problem documentation).
+     * @throws ICoCo::WrongContext exception if called several times without a call to validateStationary() or to
+     * abortStationary().
+     */
+    virtual bool solveStationary();
+
+    /*! @brief (Mandatory if initStationary() is implemented) Validate the computation performed by solveStationary() or
+     * iterateStationary().
+     *
+     * New in version 3 of ICoCo.
+     *
+     * Can be called when the code is inside the STATIONARY_DEFINED context (see Problem documentation), if solveStationary() or
+     * iterateStationary() have been called.
+     *
+     * After this call the code leaves the STATIONARY_DEFINED (and CALCULATION_DEFINED) context.
+     *
+     * @throws ICoCo::WrongContext exception if called outside the STATIONARY_DEFINED context (see Problem documentation).
+     * @throws ICoCo::WrongContext exception if called before solveStationary() or iterateStationary() methods.
+     * @sa abortStationary()
+     */
+    virtual void validateStationary();
+
+    /*! @brief (Optional) Abort the ongoing computation on stationary solution.
+     *
+     * New in version 3 of ICoCo.
+     *
+     * Can be called whenever the code is inside the STATIONARY_DEFINED context (see Problem documentation).
+     * The code then leaves the STATIONARY_DEFINED (and CALCULATION_DEFINED) context.
+     *
+     * After this call, the code must return to its state just before the previous initStationary() call.
+     * Everything that has happened since that call must be forgotten. In particular, what was set to the code should be
+     * forgotten, and outputs produced by the code must get back their previous values.
+     *
+     * This method is designed to get out a code from a corrupted state. Use iterateStationary() instead to repeat the
+     * calculation of a stationary.
+     *
+     * @throws ICoCo::WrongContext exception if called outside the STATIONARY_DEFINED context (see Problem documentation).
+     * @sa validateStationary()
+     */
+    virtual void abortStationary();
+
+    /*! @brief (Mandatory if abortStationary() is implemented) Similar to solveStationary() but can be called several times.
+     *
+     * New in version 3 of ICoCo.
+     *
+     * This method allows to repeat the computation of a stationary without calling abortStationary(). It is designed for
+     * iterative coupling algorithms.
+     *
+     * The method may behave a little differently from solveStationary(). The maximum number of iterations of the internal
+     * solving method can typically be different. However, calling iterateStationary() until converged is true must be
+     * equivalent to calling solveStationary(), within the code convergence threshold.
+     *
+     * Can be called (potentially several times) inside the STATIONARY_DEFINED context (see Problem documentation).
+     *
+     * @param[out] converged set to true if the solution is not evolving any more.
+     * @return false if the computation failed.
+     * @throws ICoCo::WrongContext exception if called outside the STATIONARY_DEFINED context (see Problem documentation).
+     * @sa solveStationary()
+     */
+    virtual bool iterateStationary(bool& converged);
+
+    // ******************************************************
     // section Restorable
     // ******************************************************
 
@@ -305,33 +462,36 @@ namespace ICoCo
      *
      * The saved state is identified by the combination of label and method arguments.
      * If save() has already been called with the same two arguments, the saved state is overwritten.
+     *
      * This method is const indicating that saving the state of the code should not change its behaviour with respect to
      * all other ICoCo methods. Implementation may rely on a mutable attribute (e.g. if saving to memory is desired).
+     * ### TODO: Vous voulez vraiment faire ca avec uniquement des mutable en C++ ? Ca me semble tres contraignant. ###
+     *
+     * A saving method can be partial as long as this is explicitly stated in the documentation. If possible, it is advised to
+     * provide a “total” saving method that allows to reproduce an equivalent to abortTimeStep() or abortStationary() outside the
+     * CALCULATION_DEFINED context (in order to be able to go back several time steps, for example).
      *
      * @param[in] label a user- (or code-) defined value identifying the state.
      * @param[in] method a string specifying which method is used to save the state of the code. A code can provide
      * different methods (for example in memory, on disk, etc.).
      * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
-     * @throws ICoCo::WrongContext exception if called inside the TIME_STEP_DEFINED context (see Problem documentation),
-     * meaning we shouldn't save a previous time step while the computation of a new time step is in progress.
+     * @throws ICoCo::WrongContext exception if called inside the CALCULATION_DEFINED context (see Problem documentation).
      * @throws ICoCo::WrongArgument exception if the method or label argument is invalid.
      */
     virtual void save(int label, const std::string& method) const;
 
-    /*! @brief (Optional) Restore the state of the code.
+    /*! @brief (Mandatory if save() is implemented) Restore the state of the code.
      *
-     * After restore, the code should behave exactly like after the corresponding call to save (except of course for
-     * save/restore methods, since the list of saved states may have changed).
      * The state to be restored is identified by the combination of label and method arguments.
-     * The save() method must have been called at some point or in some previous run with this combination.
+     * The save() method must have been called at some point or in some previous run with this combination. ### TODO: En fait... n'est-ce pas genant ? On pourrait vouloir faire une sauvegarde complete et un restore partiel, non ? ###
      *
      * @param[in] label a user- (or code-) defined value identifying the state.
      * @param[in] method a string specifying which method is used to restore the state of the code. A code can provide
      * different methods (for example in memory, on disk, etc.).
      * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
-     * @throws ICoCo::WrongContext exception if called inside the TIME_STEP_DEFINED context (see Problem documentation),
-     * meaning we shouldn't restore while the computation of a new time step is in progress.
+     * @throws ICoCo::WrongContext exception if called inside the CALCULATION_DEFINED context (see Problem documentation).
      * @throws ICoCo::WrongArgument exception if the method or label argument is invalid.
+     * @sa save()
      */
     virtual void restore(int label, const std::string& method);
 
@@ -342,6 +502,7 @@ namespace ICoCo
      * This method is const indicating that forgeting a previous state of the code should not change its behaviour with
      * respect to all other ICoCo methods. Implementation may rely on a mutable attribute (e.g. if saving to memory is
      * desired).
+     * ### TODO: Vous voulez vraiment faire ca avec uniquement des mutable en C++ ? Ca me semble tres contraignant. ###
      *
      * @param[in] label a user- (or code-) defined value identifying the state.
      * @param[in] method a string specifying which method is used to restore the state of the code. A code can provide
@@ -352,7 +513,7 @@ namespace ICoCo
     virtual void forget(int label, const std::string& method) const;
 
     // ******************************************************
-    // section Field I/O. Reminder: all methods are **optional** not all of them need to be implemented!
+    // section Field insight.
     // ******************************************************
 
     /*! @brief (Optional) Get the list of input fields accepted by the code.
@@ -369,7 +530,7 @@ namespace ICoCo
      */
     virtual std::vector<std::string> getOutputFieldsNames() const;
 
-    /*! @brief (Optional) Get the type of a field managed by the code (input or output)
+    /*! @brief (Optional) Get the type of a field managed by the code.
      *
      * The three possible types are int, double and string, as defined in the ValueType enum.
      *
@@ -397,9 +558,38 @@ namespace ICoCo
      */
     virtual std::string getFieldUnit(const std::string& name) const;
 
+    /*! @brief (Optional) Get information about time semantics of a given field.
+     *
+     * New in version 3 of ICoCo.
+     *
+     * The method is designed to help build coherent time schemes.
+     * For an output it can for example says that the data is provided at the beginning, end or middle of time step, or that
+     * a time average is calculated.
+     * For an input it can says that the provided data is taken as constant over the time scheme (order 0), or that it is seen
+     * as a first (or higher) order in time function, and that the end of time step point is required.
+     *
+     * @param[in] name field name
+     * @return explanation about time semantics of the field.
+     * @throws ICoCo::WrongArgument exception if the field name is invalid.
+     * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
+     */
+    virtual std::string getFieldTimeSemantics(const std::string& name) const;
+
+    /*! @brief (Optional) Get the name of the mesh support of a given field.
+     *
+     * New in version 3 of ICoCo.
+     *
+     * The method allows to determine whether two fields use the same mesh.
+     *
+     * @param[in] name field name
+     * @return name of the underlying mesh.
+     * @throws ICoCo::WrongArgument exception if the field name is invalid.
+     * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
+     */
+    virtual std::string getNameOfFieldUnderlyingMesh(const std::string& name) const;
 
     // ******************************************************
-    //     subsection MED*Field fields I/O
+    // section MED fields I/O
     // ******************************************************
 
     /*! @brief (Optional) Retrieve an empty shell for an input field. This shell can be filled by the caller and then be
@@ -408,50 +598,37 @@ namespace ICoCo
      * The code uses this method to populate 'afield' with all the data that represents the context
      * of the field (i.e. its support mesh, its discretization -- on nodes, on elements, ...).
      * The remaining job for the caller of this method is to fill the actual values of the field itself.
-     * When this is done the field can be sent back to the code through the method setInputField().
+     * When this is done the field can be sent back to the code through the method setInputMEDDoubleField().
      * This method is not mandatory but is useful to know the mesh, discretization... on which an input field is
      * expected.
      *
-     * See Problem documentation for more details on the time semantic of a field.
-     *
      * @param[in] name name of the field for which we would like the empty shell
-     * @param[out] afield field object (in MEDDoubleField format) that will be populated with all the contextual information.
+     * @param[out] afield field object (in MEDDoubleField format) that will be populated with all the contextual information.   ### TODO: pourquoi 'afield' et pas 'field' ? C'est moche afield, non ? ###
      * Any previous information in this object will be discarded.
      * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
      * @throws ICoCo::WrongArgument exception if the field name is invalid.
      */
     virtual void getInputMEDDoubleFieldTemplate(const std::string& name, MEDDoubleField& afield) const;
 
-
     /*! @brief (Optional) Provide the code with input data in the form of a MEDDoubleField.
      *
-     * The method getInputFieldTemplate(), if implemented, may be used first to prepare an empty shell of the field to
-     * pass to the code.
-     *
-     * See Problem documentation for more details on the time semantic of a field.
+     * The method getInputMEDDoubleFieldTemplate(), if implemented, may be used first to prepare an empty shell of the field to
+     * set to the code.
      *
      * @param[in] name name of the field that is given to the code.
-     * @param[in] afield field object (in MEDDoubleField format) containing the input data to be read by the code. The name
-     * of the field set on this instance (with the Field::setName() method) should not be checked. However its time value
-     * should be to ensure it is within the proper time interval ]t, t+dt].
+     * @param[in] afield field object (in MEDDoubleField format) containing the input data to be read by the code.
      * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
      * @throws ICoCo::WrongArgument exception if the field name ('name' parameter) is invalid.
-     * @throws ICoCo::WrongArgument exception if the time property of 'afield' does not belong to the currently computed
-     * time step ]t, t + dt]
+     *  ### TODO: je supprime ces histoires de verification du temps a l'interieur du champ. Je n'ai jamais vu ca utilise et ca ne me semble pas forcement souhaitable (ca interdirait d'initier un calcul par le resultat du pas de temps precedent par exemple, non ?)
      */
     virtual void setInputMEDDoubleField(const std::string& name, const MEDDoubleField& afield);
-
 
     /*! @brief (Optional) Retrieve output data from the code in the form of a MEDDoubleField.
      *
      * Gets the output field corresponding to name from the code into the afield argument.
      *
-     * See Problem documentation for more details on the time semantic of a field.
-     *
      * @param[in] name name of the field that the caller requests from the code.
-     * @param[out] afield field object (in MEDDoubleField format) populated with the data read by the code. The name
-     * and time properties of the field should be set in accordance with the 'name' parameter and with the current
-     * time step being computed.
+     * @param[out] afield field object (in MEDDoubleField format) populated with the data read by the code.
      * Any previous information in this object will be discarded.
      * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
      * @throws ICoCo::WrongArgument exception if the field name ('name' parameter) is invalid.
@@ -460,17 +637,15 @@ namespace ICoCo
 
     /*! @brief (Optional) Update a previously retrieved output field.
      *
-     * (New in version 2) This methods allows the code to implement a more efficient update of a given output field,
-     * thus avoiding the caller to invoke getOutputMEDDoubleField() each time.
-     * A previous call to getOutputMEDDoubleField() with the same name must have been done prior to this call.
+     * Values are set directly inside the dataArray hold by the provided field. Calling this method is therefore more efficient
+     * than calling getOutputMEDDoubleField() each time. However, a previous call to getOutputMEDDoubleField() with the same
+     * name must have been done prior to this call.
+     *
      * The code should check the consistency of the field object with the requested data (same support mesh,
      * discretization -- on nodes, on elements, etc.).
      *
-     * See Problem documentation for more details on the time semantic of a field.
-     *
      * @param[in] name name of the field that the caller requests from the code.
-     * @param[out] afield field object (in MEDDoubleField format) updated with the data read from the code. Notably the time
-     * indicated in the field should be updated to be within the current time step being computed.
+     * @param[out] afield field object (in MEDDoubleField format) updated with the data read from the code.
      * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
      * @throws ICoCo::WrongArgument exception if the field name ('name' parameter) is invalid.
      * @throws ICoCo::WrongArgument exception if the field object is inconsistent with the field being requested.
@@ -546,6 +721,8 @@ namespace ICoCo
     //     subsection TrioField fields I/O: double, int and string.
     // ******************************************************
 
+    // ### TODO: On supprime les TrioField, non ????! ###
+
     /*! @brief Similar to getInputMEDDoubleFieldTemplate() but for TrioField.
      * @sa getInputMEDDoubleFieldTemplate()
      */
@@ -567,7 +744,245 @@ namespace ICoCo
     virtual void updateOutputField(const std::string& name, TrioField& afield) const;
 
     // ******************************************************
-    // section Scalar values I/O
+    // section Array insight.
+    // ******************************************************
+
+    /*! @brief (Optional) Get the list of input arrays accepted by the code.
+     *
+     * New in version 3 of ICoCo.
+     *
+     * @return the list of array names that represent inputs of the code
+     * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
+     */
+    virtual std::vector<std::string> getInputArraysNames() const;
+
+    /*! @brief (Optional) Get the list of output arrays that can be provided by the code.
+     *
+     * New in version 3 of ICoCo.
+     *
+     * @return the list of array names that can be produced by the code
+     * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
+     */
+    virtual std::vector<std::string> getOutputArraysNames() const;
+
+    /*! @brief (Optional) Get the type of an array managed by the code.
+     *
+     * New in version 3 of ICoCo.
+     *
+     * The three possible types are int, double and string, as defined in the ValueType enum.
+     *
+     * @param[in] name array name
+     * @return one of ValueType::Double, ValueType::Int or ValueType::String
+     * @throws ICoCo::WrongArgument exception if the array name is invalid.
+     * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
+     * @sa ValueType
+     */
+    virtual ValueType getArrayType(const std::string& name) const;
+
+    /*! @brief (Optional) Get the physical unit used for a given array.
+     *
+     * New in version 3 of ICoCo.
+     *
+     * @param[in] name array name
+     * @return unit in which the array values should be understood (e.g. "W", "J", "Pa", ...)
+     * @throws ICoCo::WrongArgument exception if the array name is invalid.
+     * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
+     */
+    virtual std::string getArrayUnit(const std::string& name) const;
+
+    /*! @brief (Optional) Get information about time semantics of a given array.
+     *
+     * New in version 3 of ICoCo.
+     *
+     * The method is designed to help build coherent time schemes.
+     * For an output it can for example says that the data is provided at the beginning, end or middle of time step, or that
+     * a time average is calculated.
+     * For an input it can says that the provided data is taken as constant over the time scheme (order 0), or that it is seen
+     * as a first (or higher) order in time function, and that the end of time step point is required.
+     *
+     * @param[in] name array name
+     * @return explanation about time semantics of the array.
+     * @throws ICoCo::WrongArgument exception if the array name is invalid.
+     * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
+     */
+    virtual std::string getArrayTimeSemantics(const std::string& name) const;
+
+    // ******************************************************
+    // section MED arrays I/O
+    // ******************************************************
+
+    /*! @brief (Optional) Provide the code with input data in the form of a MEDDoubleArray.
+     *
+     * New in version 3 of ICoCo.
+     *
+     * @param[in] name name of the array that is given to the code.
+     * @param[in] array array object (in MEDDoubleArray format) containing the input data to be read by the code.
+     * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
+     * @throws ICoCo::WrongArgument exception if the array name ('name' parameter) is invalid.
+     */
+    virtual void setInputMEDDoubleArray(const std::string& name, const MEDDoubleArray& array);
+
+    /*! @brief (Optional) Retrieve output data from the code in the form of a MEDDoubleArray.
+     *
+     * New in version 3 of ICoCo.
+     *
+     * Gets the output array corresponding to name from the code into the array argument.
+     *
+     * @param[in] name name of the array that the caller requests from the code.
+     * @param[out] array array object (in MEDDoubleArray format) populated with the data read by the code.
+     * Any previous information in this object will be discarded.
+     * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
+     * @throws ICoCo::WrongArgument exception if the array name ('name' parameter) is invalid.
+     */
+    virtual void getOutputMEDDoubleArray(const std::string& name, MEDDoubleArray& array) const;
+
+    /*! @brief (Optional) Update a previously retrieved output array.
+     *
+     * New in version 3 of ICoCo.
+     *
+     * Values are set directly inside provided array. Calling this method is therefore more efficient
+     * than calling getOutputMEDDoubleArray() each time. However, a previous call to getOutputMEDDoubleArray() with the same
+     * name must have been done prior to this call.
+     *
+     * The code should check the consistency of the array object with the requested data (same number of elements, etc.).
+     *
+     * @param[in] name name of the array that the caller requests from the code.
+     * @param[out] array array object (in MEDDoubleArray format) updated with the data read from the code.
+     * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
+     * @throws ICoCo::WrongArgument exception if the array name ('name' parameter) is invalid.
+     * @throws ICoCo::WrongArgument exception if the array object is inconsistent with the array being requested.
+     */
+    virtual void updateOutputMEDDoubleArray(const std::string& name, MEDDoubleArray& array) const;
+
+    /*! @brief Similar to setInputMEDDoubleArray() but for MEDIntArray.
+     *
+     * New in version 3 of ICoCo.
+     *
+     * @sa setInputMEDDoubleArray()
+     */
+    virtual void setInputMEDIntArray(const std::string& name, const MEDIntArray& array);
+
+    /*! @brief Similar to getOutputMEDDoubleArray() but for MEDIntArray.
+     *
+     * New in version 3 of ICoCo.
+     *
+     * @sa getOutputMEDDoubleArray()
+     */
+    virtual void getOutputMEDIntArray(const std::string& name, MEDIntArray& array) const;
+
+    /*! @brief Similar to updateOutputMEDDoubleArray() but for MEDIntArray.
+     *
+     * New in version 3 of ICoCo.
+     *
+     * @sa updateOutputMEDDoubleArray()
+     */
+    virtual void updateOutputMEDIntArray(const std::string& name, MEDIntArray& array) const;
+
+    /*! @brief Similar to setInputMEDDoubleArray() but for MEDStringArray.
+     *
+     * New in version 3 of ICoCo.
+     *
+     * @b WARNING: at the time of writing, MEDStringArray are not yet implemented anywhere.
+     * @sa setInputMEDDoubleArray()
+     */
+    virtual void setInputMEDStringArray(const std::string& name, const MEDStringArray& array);
+
+    /*! @brief Similar to getOutputMEDDoubleArray() but for MEDStringArray.
+     *
+     * New in version 3 of ICoCo.
+     *
+     * @b WARNING: at the time of writing, MEDStringArray are not yet implemented anywhere.
+     * @sa getOutputMEDDoubleArray()
+     */
+    virtual void getOutputMEDStringArray(const std::string& name, MEDStringArray& array) const;
+
+    /*! @brief Similar to updateOutputMEDDoubleArray() but for MEDStringArray.
+     *
+     * New in version 3 of ICoCo.
+     *
+     * @b WARNING: at the time of writing, MEDStringArray are not yet implemented anywhere.
+     * @sa updateOutputMEDDoubleArray()
+     */
+    virtual void updateOutputMEDStringArray(const std::string& name, MEDStringArray& array) const;
+
+    // ******************************************************
+    // section AlgebraicData insight.
+    // ******************************************************
+
+    /*! @brief (Optional) Get the list of AlgebraicData available in the code.
+     *
+     * New in version 3 of ICoCo.
+     *
+     * @return the list of AlgebraicData names of the code
+     * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
+     */
+    virtual std::vector<std::string> getAlgebraicDataNames() const;
+
+    /*! @brief (Optional) Get information about time semantics of a given AlgebraicData.
+     *
+     * New in version 3 of ICoCo.
+     *
+     * The method is designed to help build coherent time schemes.
+     * For an output it can for example says that the data is provided at the beginning, end or middle of time step, or that
+     * a time average is calculated.
+     * For an input it can says that the provided data is taken as constant over the time scheme (order 0), or that it is seen
+     * as a first (or higher) order in time function, and that the end of time step point is required.
+     * CAUTION: AlgebraicData are always both input and output.
+     *
+     * @param[in] name AlgebraicData name
+     * @return explanation about time semantics of the AlgebraicData.
+     * @throws ICoCo::WrongArgument exception if the AlgebraicData name is invalid.
+     * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
+     */
+    virtual std::string getAlgebraicDataTimeSemantics(const std::string& name) const;
+
+    // ******************************************************
+    // section AlgebraicData I/O
+    // ******************************************************
+
+    /*! @brief (Optional) Provide the code with input data in the form of a AlgebraicData.
+     *
+     * New in version 3 of ICoCo.
+     *
+     * @param[in] name name of the AlgebraicData that is given to the code.
+     * @param[in] data AlgebraicData object to be read by the code.
+     * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
+     * @throws ICoCo::WrongArgument exception if the AlgebraicData name ('name' parameter) is invalid.
+     */
+    virtual void setAlgebraicData(const std::string& name, const AlgebraicData& data);
+
+    /*! @brief (Optional) Retrieve an AlgebraicData from the code.
+     *
+     * New in version 3 of ICoCo.
+     *
+     * @param[in] name name of the AlgebraicData that the caller requests from the code.
+     * @param[out] data AlgebraicData object populated with the data read by the code.
+     * Any previous information in this object will be discarded.
+     * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
+     * @throws ICoCo::WrongArgument exception if the AlgebraicData name ('name' parameter) is invalid.
+     */
+    virtual void getAlgebraicData(const std::string& name, AlgebraicData& data) const;
+
+    /*! @brief (Optional) Update a previously retrieved AlgebraicData.
+     *
+     * New in version 3 of ICoCo.
+     *
+     * Values are set directly inside provided AlgebraicData. Calling this method is therefore more efficient
+     * than calling getAlgebraicData() each time. However, a previous call to getAlgebraicData() with the same
+     * name must have been done prior to this call.
+     *
+     * The code should check the consistency of the data object with the requested data (same number of elements, etc.).
+     *
+     * @param[in] name name of the AlgebraicData that the caller requests from the code.
+     * @param[out] data AlgebraicData object updated with the data read from the code.
+     * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
+     * @throws ICoCo::WrongArgument exception if the AlgebraicData name ('name' parameter) is invalid.
+     * @throws ICoCo::WrongArgument exception if the data object is inconsistent with the AlgebraicData being requested.
+     */
+    virtual void updateAlgebraicData(const std::string& name, AlgebraicData& data) const;
+
+    // ******************************************************
+    // section Scalar values insight.
     // ******************************************************
 
     /*! @brief (Optional) Get the list of input scalars accepted by the code.
@@ -605,9 +1020,28 @@ namespace ICoCo
      */
     virtual std::string getValueUnit(const std::string& name) const;
 
-    /*! @brief (Optional) Provide the code with a scalar double data.
+    /*! @brief (Optional) Get information about time semantics of a given value.
      *
-     * See Problem documentation for more details on the time semantic of a scalar value.
+     * New in version 3 of ICoCo.
+     *
+     * The method is designed to help build coherent time schemes.
+     * For an output it can for example says that the data is provided at the beginning, end or middle of time step, or that
+     * a time average is calculated.
+     * For an input it can says that the provided data is taken as constant over the time scheme (order 0), or that it is seen
+     * as a first (or higher) order in time function, and that the end of time step point is required.
+     *
+     * @param[in] name value name
+     * @return explanation about time semantics of the value.
+     * @throws ICoCo::WrongArgument exception if the value name is invalid.
+     * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
+     */
+    virtual std::string getValueTimeSemantics(const std::string& name) const;
+
+    // ******************************************************
+    // section Scalar values I/O.
+    // ******************************************************
+
+    /*! @brief (Optional) Provide the code with a scalar double data.
      *
      * @param[in] name name of the scalar value that is given to the code.
      * @param[in] val value passed to the code.
@@ -616,8 +1050,6 @@ namespace ICoCo
     virtual void setInputDoubleValue(const std::string& name, const double& val);
 
     /*! @brief (Optional) Retrieve a scalar double value from the code.
-     *
-     * See Problem documentation for more details on the time semantic of a scalar value.
      *
      * @param[in] name name of the scalar value to be read from the code.
      * @return the double value read from the code.

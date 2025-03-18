@@ -46,9 +46,14 @@ namespace ICoCo
     throw NotImplemented("type_of_Problem_not_set", "terminate");
   }
 
+   std::string Problem::getLastErrorMessage() const
+  {
+    throw NotImplemented("type_of_Problem_not_set", "getLastErrorMessage");
+  }
+
   ///////////////////////////////////
   //                               //
-  //   section UnsteadyProblem   //
+  //   section TimeStepManagement  //
   //                               //
   ///////////////////////////////////
 
@@ -107,6 +112,43 @@ namespace ICoCo
     throw NotImplemented("type_of_Problem_not_set", "resetTimeStep");
   }
 
+  ///////////////////////////////////
+  //                               //
+  //  section StationaryManagement //
+  //                               //
+  ///////////////////////////////////
+
+  void Problem::initStationary()
+  {
+    throw NotImplemented("type_of_Problem_not_set", "initStationary");
+  }
+
+  bool Problem::solveStationary()
+  {
+    throw NotImplemented("type_of_Problem_not_set", "solveStationary");
+  }
+
+  void Problem::validateStationary()
+  {
+    throw NotImplemented("type_of_Problem_not_set", "validateStationary");
+  }
+
+  void Problem::abortStationary()
+  {
+    throw NotImplemented("type_of_Problem_not_set", "abortStationary");
+  }
+
+  bool Problem::iterateStationary(bool& converged)
+  {
+    throw NotImplemented("type_of_Problem_not_set", "iterateStationary");
+  }
+
+  ///////////////////////////////////
+  //                               //
+  //      section Restorable       //
+  //                               //
+  ///////////////////////////////////
+
   void Problem::save(int label, const std::string& method) const
   {
     throw NotImplemented("type_of_Problem_not_set", "save");
@@ -122,31 +164,57 @@ namespace ICoCo
     throw NotImplemented("type_of_Problem_not_set", "forget");
   }
 
-  std::string Problem::getMeshUnit() const
-  {
-    throw NotImplemented("type_of_Problem_not_set", "getMeshUnit");
-  }
-
-  std::string Problem::getFieldUnit(const std::string& fieldName) const
-  {
-    throw NotImplemented("type_of_Problem_not_set", "getFieldUnit");
-  }
+  ///////////////////////////////////
+  //                               //
+  //    section fields insight     //
+  //                               //
+  ///////////////////////////////////
 
   std::vector<std::string> Problem::getInputFieldsNames() const
   {
     throw NotImplemented("type_of_Problem_not_set", "getInputFieldsNames");
   }
 
-  void Problem::getInputFieldTemplate(const std::string& name, TrioField& afield) const
+  std::vector<std::string> Problem::getOutputFieldsNames() const
   {
-    throw NotImplemented("type_of_Problem_not_set", "getInputFieldTemplate");
+    throw NotImplemented("type_of_Problem_not_set", "getOutputFieldsNames");
+  }
+
+  ValueType Problem::getFieldType(const std::string& name) const
+  {
+    throw NotImplemented("type_of_Problem_not_set", "getOutputValuesNames");
+  }
+
+  std::string Problem::getMeshUnit() const
+  {
+    throw NotImplemented("type_of_Problem_not_set", "getMeshUnit");
+  }
+
+  std::string Problem::getFieldUnit(const std::string& name) const
+  {
+    throw NotImplemented("type_of_Problem_not_set", "getFieldUnit");
+  }
+
+  std::string Problem::getFieldTimeSemantics(const std::string& name) const
+  {
+    throw NotImplemented("type_of_Problem_not_set", "getFieldTimeSemantics");
+  }
+
+  std::string Problem::getFieldUnderlyingMeshName(const std::string& name) const
+  {
+    throw NotImplemented("type_of_Problem_not_set", "getFieldUnderlyingMeshName");
   }
 
   ///////////////////////////////////
   //                               //
-  //   section MED fields I/O   //
+  //    section MED fields I/O     //
   //                               //
   ///////////////////////////////////
+
+  void Problem::getInputFieldTemplate(const std::string& name, TrioField& afield) const
+  {
+    throw NotImplemented("type_of_Problem_not_set", "getInputFieldTemplate");
+  }
 
   void Problem::getInputMEDDoubleFieldTemplate(const std::string& name, MEDDoubleField& afield) const
   {
@@ -220,23 +288,132 @@ namespace ICoCo
 
   ///////////////////////////////////
   //                               //
-  //   section TrioField fields I/O   //
+  //    section arrays insight     //
+  //                               //
+  ///////////////////////////////////
+
+  std::vector<std::string> Problem::getInputArraysNames() const
+  {
+    throw NotImplemented("type_of_Problem_not_set", "getInputArraysNames");
+  }
+
+  std::vector<std::string> Problem::getOutputArraysNames() const
+  {
+    throw NotImplemented("type_of_Problem_not_set", "getOutputArraysNames");
+  }
+
+  ValueType Problem::getArrayType(const std::string& name) const
+  {
+    throw NotImplemented("type_of_Problem_not_set", "getOutputValuesNames");
+  }
+
+  std::string Problem::getArrayUnit(const std::string& name) const
+  {
+    throw NotImplemented("type_of_Problem_not_set", "getArrayUnit");
+  }
+
+  std::string Problem::getArrayTimeSemantics(const std::string& name) const
+  {
+    throw NotImplemented("type_of_Problem_not_set", "getArrayTimeSemantics");
+  }
+
+  ///////////////////////////////////
+  //                               //
+  //    section MED arrays I/O     //
+  //                               //
+  ///////////////////////////////////
+
+  void Problem::setInputMEDDoubleArray(const std::string& name, const MEDDoubleArray& array)
+  {
+    throw NotImplemented("type_of_Problem_not_set", "setInputMEDDoubleArray");
+  }
+
+  void Problem::getOutputMEDDoubleArray(const std::string& name, MEDDoubleArray& array) const
+  {
+    throw NotImplemented("type_of_Problem_not_set", "getOutputMEDDoubleArray");
+  }
+
+  void Problem::updateOutputMEDDoubleArray(const std::string& name, MEDDoubleArray& array) const
+  {
+    throw NotImplemented("type_of_Problem_not_set", "updateOutputMEDDoubleArray");
+  }
+
+  void Problem::setInputMEDIntArray(const std::string& name, const MEDIntArray& array)
+  {
+    throw NotImplemented("type_of_Problem_not_set", "setInputMEDIntArray");
+  }
+
+  void Problem::getOutputMEDIntArray(const std::string& name, MEDIntArray& array) const
+  {
+    throw NotImplemented("type_of_Problem_not_set", "getOutputMEDIntArray");
+  }
+
+  void Problem::updateOutputMEDIntArray(const std::string& name, MEDIntArray& array) const
+  {
+    throw NotImplemented("type_of_Problem_not_set", "updateOutputMEDIntArray");
+  }
+
+  void Problem::setInputMEDStringArray(const std::string& name, const MEDStringArray& array)
+  {
+    throw NotImplemented("type_of_Problem_not_set", "setInputMEDStringArray");
+  }
+
+  void Problem::getOutputMEDStringArray(const std::string& name, MEDStringArray& array) const
+  {
+    throw NotImplemented("type_of_Problem_not_set", "getOutputMEDStringArray");
+  }
+
+  void Problem::updateOutputMEDStringArray(const std::string& name, MEDStringArray& array) const
+  {
+    throw NotImplemented("type_of_Problem_not_set", "updateOutputMEDStringArray");
+  }
+
+  ///////////////////////////////////
+  //                               //
+  // section AlgebraicData insight //
+  //                               //
+  ///////////////////////////////////
+
+  std::vector<std::string> Problem::getAlgebraicDataNames() const
+  {
+    throw NotImplemented("type_of_Problem_not_set", "getAlgebraicDataNames");
+  }
+
+  std::string Problem::getAlgebraicDataTimeSemantics(const std::string& name) const
+  {
+    throw NotImplemented("type_of_Problem_not_set", "getAlgebraicDataTimeSemantics");
+  }
+
+  ///////////////////////////////////
+  //                               //
+  //   section AlgebraicData I/O   //
+  //                               //
+  ///////////////////////////////////
+
+ void Problem::setAlgebraicData(const std::string& name, const AlgebraicData& data)
+  {
+    throw NotImplemented("type_of_Problem_not_set", "setAlgebraicData");
+  }
+
+  void Problem::getAlgebraicData(const std::string& name, AlgebraicData& data) const
+  {
+    throw NotImplemented("type_of_Problem_not_set", "getAlgebraicData");
+  }
+
+  void Problem::updateAlgebraicData(const std::string& name, AlgebraicData& data) const
+  {
+    throw NotImplemented("type_of_Problem_not_set", "updateAlgebraicData");
+  }
+
+  ///////////////////////////////////
+  //                               //
+  //    section Trio fields I/O    //
   //                               //
   ///////////////////////////////////
 
   void Problem::setInputField(const std::string& name, const TrioField& afield)
   {
     throw NotImplemented("type_of_Problem_not_set", "setInputField");
-  }
-
-  std::vector<std::string> Problem::getOutputFieldsNames() const
-  {
-    throw NotImplemented("type_of_Problem_not_set", "getOutputFieldsNames");
-  }
-
-  ValueType Problem::getFieldType(const std::string& name) const
-  {
-    throw NotImplemented("type_of_Problem_not_set", "getOutputValuesNames");
   }
 
   void Problem::getOutputField(const std::string& name, TrioField& afield) const
@@ -249,10 +426,9 @@ namespace ICoCo
     throw NotImplemented("type_of_Problem_not_set", "updateOutputField");
   }
 
-
   ///////////////////////////////////
   //                               //
-  //   section Scalar values I/O   //
+  // section Scalar values insight //
   //                               //
   ///////////////////////////////////
 
@@ -275,6 +451,17 @@ namespace ICoCo
   {
     throw NotImplemented("type_of_Problem_not_set", "getValueUnit");
   }
+
+  std::string Problem::getValueTimeSemantics(const std::string& name) const
+  {
+    throw NotImplemented("type_of_Problem_not_set", "getValueTimeSemantics");
+  }
+
+  ///////////////////////////////////
+  //                               //
+  //   section Scalar values I/O   //
+  //                               //
+  ///////////////////////////////////
 
   double Problem::getOutputDoubleValue(const std::string& name) const
   {
