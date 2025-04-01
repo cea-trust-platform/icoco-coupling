@@ -1,5 +1,5 @@
 // ICoCo file common to several codes
-// Version 2 -- 02/2021
+// Version 3 -- 03/2025
 //
 // WARNING: this file is part of the official ICoCo API and should not be modified.
 // The official version can be found at the following URL:
@@ -97,15 +97,6 @@ namespace ICoCo
      * @return reference on this.
      */
     virtual AlgebraicData& operator*=(const AlgebraicData& data) = 0;
-
-    /*! @brief In place this + scalar * data.   ### TODO: pas classique mais sinon je ne sais pas ecrire certaines formules basiques sans faire plein de copies. ###
-     *
-     * @throw std::exception if the actual type of data is not the same as that of this.
-     * @param[in] scalar double value to use for the multiplication.
-     * @param[in] data another AlgebraicData. Should be left unmodified.
-     * @return reference on this.
-     */
-    virtual AlgebraicData& imuladd(double scalar, AlgebraicData& data) = 0;
 
     /*! @brief Return the scalar product of this with data.
      *

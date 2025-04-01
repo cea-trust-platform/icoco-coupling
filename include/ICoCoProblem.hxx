@@ -68,7 +68,7 @@ namespace ICoCo
    * Fields and scalar values that are set within the CALCULATION_DEFINED context are invalidated (undefined behavior) after
    * the context has been closed. They need to be set at each calculation. However, fields and scalar values that are set outside
    * of this context (before the first time step for example, or after the resolution of the last time step) are permanent
-   * (unless modified afterward within the CALCULATION_DEFINED context).
+   * (unless modified afterward).
    *
    * Within the CALCULATION_DEFINED context, calling a solving methods (solveTimeStep(), iterateTimeStep(), solveStationary(), or
    * iterateStationary()) updates available scalar and field outputs, even if validation (validateTimeStep() or
@@ -76,8 +76,9 @@ namespace ICoCo
    *
    *
    * Objects returned by ICoCo, WITH THE EXCEPTION OF MED FIELD UNDERLYING MESHES, are copied by the methods returning them,
-   * transferring their responsibility to the caller. They can be freely modified or deleted by the caller. Field underlying
-   * meshes, however, should not be copied if possible. The caller must therefore refrain from deleting or modifying them.
+   * transferring their responsibility to the caller. They can be freely modified or deleted by the caller. This includes the
+   * "AlgebraicData". Field underlying meshes, however, should not be copied if possible. The caller must therefore refrain from
+   * deleting or modifying them.
    * CAUTION: update methods like updateOutputMEDDoubleField() write data in place.
    * ### TODO: Est-ce qu'on ne supprimerait pas toutes les fonctions update du coup ? ###
    *
@@ -89,22 +90,34 @@ namespace ICoCo
    * hereafter as elementary) and “A + B” (compound mode, solving the coupling between A and B). All possible calculation types
    * must have an elementary mode (in the previous example, mode “B” is mandatory if “A” and “A + B” exist).
    *
-   * A mode is activated by setting a scalar value (int or string).
+   * A mode is selected by setting a scalar value (int or string). It should not be possible to select a compound mode whose
+   * elementary modes are not synchronized (same presentTime(), see below).
    *
-   * When a mode is selected outside the CALCULATION_DEFINED context, the resolution methods (and only these methods) become
-   * specific to that mode (and have no impact on elementary modes not included in the selected mode). In particular,
-   * presentTime() depends on the selected mode. For example, if mode “A” is selected just after initialize(), and three time
-   * steps of duration 1 are solved in this mode, presentTime() in mode A must return 3, but presentTime() in mode B must return
-   * 0. It should not be possible to select a compound mode whose elementary modes are not synchronized.
+   * The behavior of the resolution methods (sections StationaryManagement and TimeStepManagement with the exception of
+   * setStationaryMode() and getStationaryMode()) must depend on the selected mode (have no impact on elementary modes not
+   * included in the selected mode). In particular, presentTime() depends on the selected mode. For example, if mode “A” is
+   * selected just after initialize(), and three time steps of duration 1 are solved in this mode, presentTime() in mode A
+   * must return 3, but presentTime() in mode B must return 0.
    *
-   * A mode can also be selected within the CALCULATION_DEFINED context. In this case, only the modes included in the (compound)
-   * mode selected when the context was opened can be selected. The context can only be closed in the mode selected when opened.
+   * The behavior of restorable methods (save, restore, forget) may also depend on the mode. It can also be the case for some
+   * get / set features.
+   *
+   * A mode can be selected either within or outside the CALCULATION_DEFINED context. However, a mode can be selected within the
+   * CALCULATION_DEFINED context only if it was already included in the (compound) mode selected when the context was opened.
+   * For example, inside the CALCULATION_DEFINED context, we can switch between modes "A" and "B" if "A + B" was selected when
+   * the context was opened. The context can only be closed in the mode selected when opened.
+   *
+   *
+   * In addition to well defined data types (fields, arrays and scalar), ICoCo also introduces the vague type "AlgebraicData".
+   * The rational is to offer the caller the possibility of accelerating an internal iterative process from the outside.
+   * These data can be manipulated without their exact nature needing to be known, and then re-injected into the code that
+   * produced them. It is therefore the responsibility of codes providing this kind of data to be able to re-read them.
    *
    *
    * Within the computation of a time step (so within TIME_STEP_DEFINED context), the temporal semantics of data (any kind of
    * data like fields or scalars) is not imposed by the norm. Said differently, it does not require the data to be defined at the
    * start/middle/end of the current time step, this semantics must be agreed on between the codes being coupled.
-   * Methods getXXXTimeSemantics() can be implemented to help achieve this agreement.
+   * Methods get...TimeSemantics() can be implemented to help achieve this agreement.
    *
    *
    * Finally, the ICoCo interface may be wrapped in Python using SWIG or PyBind11. For an example of the former see the
@@ -235,20 +248,14 @@ namespace ICoCo
      * After this call (if successful), the computation time step is defined to ]t, t + dt] where t is the value
      * returned by presentTime().
      *
-     * Can be called outside the CALCULATION_DEFINED context (see Problem documentation). In this case, the code enters the
-     * CALCULATION_DEFINED (TIME_STEP_DEFINED) context.
-     *
-     * ### TODO: Autoriser d'appeler initTimeStep dans le contexte TIME_STEP_DEFINED pour recommencer un calcul qui ne necessite pas vraiment un abort avec un pas de temps different ? Proposition : ###
-     * If the code is able to repeat the computation of a time step, calling this method inside the TIME_STEP_DEFINED context
-     * is also possible. This is similar to calling abortTimeStep() then initTimeStep(), but the internal state of the code
-     * may be left unchanged. This solution is useful when one needs to modify the time step but the code is not in a corrupted
-     * state.
+     * Can be called whenever the code is outside the CALCULATION_DEFINED context (see Problem documentation).
+     * The code enters the CALCULATION_DEFINED (TIME_STEP_DEFINED) context.
      *
      * @param[in] dt the time step to be used by the code. Must be > 0.0.
      * @return false means that given time step is not compatible with the code time scheme.
      *
      * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
-     * // @throws ICoCo::WrongContext exception if called inside the CALCULATION_DEFINED context (see Problem documentation).
+     * @throws ICoCo::WrongContext exception if called inside the CALCULATION_DEFINED context (see Problem documentation).
      * @throws ICoCo::WrongArgument exception if dt is invalid (dt <= 0.0).
      */
     virtual bool initTimeStep(double dt);
@@ -364,7 +371,7 @@ namespace ICoCo
      *
      * Can be called (potentially several times) inside the TIME_STEP_DEFINED context (see Problem documentation).
      *
-     * @param[out] converged set to true if the solution is not evolving any more.
+     * @param[out] converged set to true if the solution is converged.
      * @return false if the computation failed.
      * @throws ICoCo::WrongContext exception if called outside the TIME_STEP_DEFINED context (see Problem documentation)
      * @sa solveTimeStep()
@@ -447,7 +454,7 @@ namespace ICoCo
      *
      * Can be called (potentially several times) inside the STATIONARY_DEFINED context (see Problem documentation).
      *
-     * @param[out] converged set to true if the solution is not evolving any more.
+     * @param[out] converged set to true if the solution is converged.
      * @return false if the computation failed.
      * @throws ICoCo::WrongContext exception if called outside the STATIONARY_DEFINED context (see Problem documentation).
      * @sa solveStationary()
@@ -467,33 +474,36 @@ namespace ICoCo
      * all other ICoCo methods. Implementation may rely on a mutable attribute (e.g. if saving to memory is desired).
      * ### TODO: Vous voulez vraiment faire ca avec uniquement des mutable en C++ ? Ca me semble tres contraignant. ###
      *
-     * A saving method can be partial as long as this is explicitly stated in the documentation. If possible, it is advised to
-     * provide a “total” saving method that allows to reproduce an equivalent to abortTimeStep() or abortStationary() outside the
+     * The content argument allows to select what should be saved. If possible, it is advised to provide the possibility to
+     * use a "full" saving, allowing to reproduce an equivalent to abortTimeStep() or abortStationary() outside the
      * CALCULATION_DEFINED context (in order to be able to go back several time steps, for example).
      *
      * @param[in] label a user- (or code-) defined value identifying the state.
      * @param[in] method a string specifying which method is used to save the state of the code. A code can provide
      * different methods (for example in memory, on disk, etc.).
+     * @param[in] content a string specifying what should be saved. ### TODO: nouvel argument ###
      * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
      * @throws ICoCo::WrongContext exception if called inside the CALCULATION_DEFINED context (see Problem documentation).
      * @throws ICoCo::WrongArgument exception if the method or label argument is invalid.
      */
-    virtual void save(int label, const std::string& method) const;
+    virtual void save(int label, const std::string& method, const std::string& content) const;
 
     /*! @brief (Mandatory if save() is implemented) Restore the state of the code.
      *
      * The state to be restored is identified by the combination of label and method arguments.
-     * The save() method must have been called at some point or in some previous run with this combination. ### TODO: En fait... n'est-ce pas genant ? On pourrait vouloir faire une sauvegarde complete et un restore partiel, non ? ###
+     * The save() method must have been called at some point or in some previous run with this combination.
+     * The content argument provided to the restore method should refer to a sub-part (possibly all) of the saved content.
      *
      * @param[in] label a user- (or code-) defined value identifying the state.
      * @param[in] method a string specifying which method is used to restore the state of the code. A code can provide
      * different methods (for example in memory, on disk, etc.).
+     * @param[in] content a string specifying what should be saved. ### TODO: nouvel argument ###
      * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
      * @throws ICoCo::WrongContext exception if called inside the CALCULATION_DEFINED context (see Problem documentation).
      * @throws ICoCo::WrongArgument exception if the method or label argument is invalid.
      * @sa save()
      */
-    virtual void restore(int label, const std::string& method);
+    virtual void restore(int label, const std::string& method, const std::string& content);
 
     /*! @brief (Optional) Discard a previously saved state of the code.
      *
