@@ -33,7 +33,6 @@ namespace ICoCo
   class MEDIntArray;
   class MEDStringArray;
   class AlgebraicData;
-  class TrioField;
 
   /*! @brief The various possible types for fields or scalar values.
    */
@@ -75,12 +74,10 @@ namespace ICoCo
    * validateStationary()) has not been called yet.
    *
    *
-   * Objects returned by ICoCo, WITH THE EXCEPTION OF MED FIELD UNDERLYING MESHES, are copied by the methods returning them,
-   * transferring their responsibility to the caller. They can be freely modified or deleted by the caller. This includes the
-   * "AlgebraicData". Field underlying meshes, however, should not be copied if possible. The caller must therefore refrain from
-   * deleting or modifying them.
-   * CAUTION: update methods like updateOutputMEDDoubleField() write data in place.
-   * ### TODO: Est-ce qu'on ne supprimerait pas toutes les fonctions update du coup ? ###
+   * Objects returned by ICoCo, WITH THE EXCEPTION OF MED FIELD UNDERLYING MESHES, are the responsability of the caller. They
+   * can be freely modified or deleted by the caller. This includes the "AlgebraicData". Field underlying meshes, however,
+   * may not be copied when a field is get (only a reference on an internal MED mesh may be provided to the output field).
+   * The caller must therefore refrain from deleting or modifying them.
    *
    *
    * Some codes solve a large number of equations, and it can be useful to drive the resolution of these equations separately.
@@ -467,26 +464,26 @@ namespace ICoCo
 
     /*! @brief (Optional) Save the state of the code.
      *
-     * The saved state is identified by the combination of label and method arguments.
-     * If save() has already been called with the same two arguments, the saved state is overwritten.
+     * The saved state is identified by the combination of label and method arguments, while the content argument allows to
+     * select what should be saved. If an empty string is provided (default value) to content argument, a "full" saving is done.
+     *
+     * If save() has already been called with the same label and method arguments but with different content argument, there are
+     * two possible behavors (check the code documentation): (i) the previous saving may be either completely deleted, or (ii)
+     * just the common contents overwritten.
      *
      * This method is const indicating that saving the state of the code should not change its behaviour with respect to
      * all other ICoCo methods. Implementation may rely on a mutable attribute (e.g. if saving to memory is desired).
      * ### TODO: Vous voulez vraiment faire ca avec uniquement des mutable en C++ ? Ca me semble tres contraignant. ###
      *
-     * The content argument allows to select what should be saved. If possible, it is advised to provide the possibility to
-     * use a "full" saving, allowing to reproduce an equivalent to abortTimeStep() or abortStationary() outside the
-     * CALCULATION_DEFINED context (in order to be able to go back several time steps, for example).
-     *
      * @param[in] label a user- (or code-) defined value identifying the state.
      * @param[in] method a string specifying which method is used to save the state of the code. A code can provide
      * different methods (for example in memory, on disk, etc.).
-     * @param[in] content a string specifying what should be saved. ### TODO: nouvel argument ###
+     * @param[in] content a string specifying what should be saved. By default (empty string), the saving is complete.
      * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
      * @throws ICoCo::WrongContext exception if called inside the CALCULATION_DEFINED context (see Problem documentation).
      * @throws ICoCo::WrongArgument exception if the method or label argument is invalid.
      */
-    virtual void save(int label, const std::string& method, const std::string& content) const;
+    virtual void save(int label, const std::string& method, const std::string& content = std::string()) const;
 
     /*! @brief (Mandatory if save() is implemented) Restore the state of the code.
      *
@@ -497,13 +494,13 @@ namespace ICoCo
      * @param[in] label a user- (or code-) defined value identifying the state.
      * @param[in] method a string specifying which method is used to restore the state of the code. A code can provide
      * different methods (for example in memory, on disk, etc.).
-     * @param[in] content a string specifying what should be saved. ### TODO: nouvel argument ###
+     * @param[in] content a string specifying what should be restored. By default (empty string), a complete restore is required.
      * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
      * @throws ICoCo::WrongContext exception if called inside the CALCULATION_DEFINED context (see Problem documentation).
      * @throws ICoCo::WrongArgument exception if the method or label argument is invalid.
      * @sa save()
      */
-    virtual void restore(int label, const std::string& method, const std::string& content);
+    virtual void restore(int label, const std::string& method, const std::string& content = std::string());
 
     /*! @brief (Optional) Discard a previously saved state of the code.
      *
@@ -639,28 +636,11 @@ namespace ICoCo
      *
      * @param[in] name name of the field that the caller requests from the code.
      * @param[out] afield field object (in MEDDoubleField format) populated with the data read by the code.
-     * Any previous information in this object will be discarded.
+     * If the provided field is adequate, data may be written in place.
      * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
      * @throws ICoCo::WrongArgument exception if the field name ('name' parameter) is invalid.
      */
     virtual void getOutputMEDDoubleField(const std::string& name, MEDDoubleField& afield) const;
-
-    /*! @brief (Optional) Update a previously retrieved output field.
-     *
-     * Values are set directly inside the dataArray hold by the provided field. Calling this method is therefore more efficient
-     * than calling getOutputMEDDoubleField() each time. However, a previous call to getOutputMEDDoubleField() with the same
-     * name must have been done prior to this call.
-     *
-     * The code should check the consistency of the field object with the requested data (same support mesh,
-     * discretization -- on nodes, on elements, etc.).
-     *
-     * @param[in] name name of the field that the caller requests from the code.
-     * @param[out] afield field object (in MEDDoubleField format) updated with the data read from the code.
-     * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
-     * @throws ICoCo::WrongArgument exception if the field name ('name' parameter) is invalid.
-     * @throws ICoCo::WrongArgument exception if the field object is inconsistent with the field being requested.
-     */
-    virtual void updateOutputMEDDoubleField(const std::string& name, MEDDoubleField& afield) const;
 
     /*! @brief Similar to getInputMEDDoubleFieldTemplate() but for MEDIntField.
      * @sa getInputMEDDoubleFieldTemplate()
@@ -676,11 +656,6 @@ namespace ICoCo
      * @sa getOutputMEDDoubleField()
      */
     virtual void getOutputMEDIntField(const std::string& name, MEDIntField& afield) const;
-
-    /*! @brief Similar to updateOutputMEDDoubleField() but for MEDIntField.
-     * @sa updateOutputMEDDoubleField()
-     */
-    virtual void updateOutputMEDIntField(const std::string& name, MEDIntField& afield) const;
 
     /*! @brief Similar to getInputMEDDoubleFieldTemplate() but for MEDStringField.
      *
@@ -703,13 +678,6 @@ namespace ICoCo
      */
     virtual void getOutputMEDStringField(const std::string& name, MEDStringField& afield) const;
 
-    /*! @brief Similar to updateOutputMEDDoubleField() but for MEDStringField.
-     *
-     * @b WARNING: at the time of writing, MEDStringField are not yet implemented anywhere.
-     * @sa updateOutputMEDDoubleField()
-     */
-    virtual void updateOutputMEDStringField(const std::string& name, MEDStringField& afield) const;
-
     /*! @brief (Optional) Get MEDCoupling major version, if the code was built with MEDCoupling support.
      *
      * This can be used to assess compatibility between codes when coupling them.
@@ -726,32 +694,6 @@ namespace ICoCo
      * @return the MEDCoupling major version number
      */
     virtual bool isMEDCoupling64Bits() const;
-
-    // ******************************************************
-    //     subsection TrioField fields I/O: double, int and string.
-    // ******************************************************
-
-    // ### TODO: On supprime les TrioField, non ????! ###
-
-    /*! @brief Similar to getInputMEDDoubleFieldTemplate() but for TrioField.
-     * @sa getInputMEDDoubleFieldTemplate()
-     */
-    virtual void getInputFieldTemplate(const std::string& name, TrioField& afield) const;
-
-    /*! @brief Similar to setInputMEDDoubleField() but for TrioField.
-     * @sa setInputMEDDoubleField()
-     */
-    virtual void setInputField(const std::string& name, const TrioField& afield);
-
-    /*! @brief Similar to getOutputMEDDoubleField() but for TrioField.
-     * @sa getOutputMEDDoubleField()
-     */
-    virtual void getOutputField(const std::string& name, TrioField& afield) const;
-
-    /*! @brief Similar to updateOutputMEDDoubleField() but for TrioField.
-     * @sa updateOutputMEDDoubleField()
-     */
-    virtual void updateOutputField(const std::string& name, TrioField& afield) const;
 
     // ******************************************************
     // section Array insight.
@@ -840,29 +782,11 @@ namespace ICoCo
      *
      * @param[in] name name of the array that the caller requests from the code.
      * @param[out] array array object (in MEDDoubleArray format) populated with the data read by the code.
-     * Any previous information in this object will be discarded.
+     * If the provided array is adequate, data may be written in place.
      * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
      * @throws ICoCo::WrongArgument exception if the array name ('name' parameter) is invalid.
      */
     virtual void getOutputMEDDoubleArray(const std::string& name, MEDDoubleArray& array) const;
-
-    /*! @brief (Optional) Update a previously retrieved output array.
-     *
-     * New in version 3 of ICoCo.
-     *
-     * Values are set directly inside provided array. Calling this method is therefore more efficient
-     * than calling getOutputMEDDoubleArray() each time. However, a previous call to getOutputMEDDoubleArray() with the same
-     * name must have been done prior to this call.
-     *
-     * The code should check the consistency of the array object with the requested data (same number of elements, etc.).
-     *
-     * @param[in] name name of the array that the caller requests from the code.
-     * @param[out] array array object (in MEDDoubleArray format) updated with the data read from the code.
-     * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
-     * @throws ICoCo::WrongArgument exception if the array name ('name' parameter) is invalid.
-     * @throws ICoCo::WrongArgument exception if the array object is inconsistent with the array being requested.
-     */
-    virtual void updateOutputMEDDoubleArray(const std::string& name, MEDDoubleArray& array) const;
 
     /*! @brief Similar to setInputMEDDoubleArray() but for MEDIntArray.
      *
@@ -879,14 +803,6 @@ namespace ICoCo
      * @sa getOutputMEDDoubleArray()
      */
     virtual void getOutputMEDIntArray(const std::string& name, MEDIntArray& array) const;
-
-    /*! @brief Similar to updateOutputMEDDoubleArray() but for MEDIntArray.
-     *
-     * New in version 3 of ICoCo.
-     *
-     * @sa updateOutputMEDDoubleArray()
-     */
-    virtual void updateOutputMEDIntArray(const std::string& name, MEDIntArray& array) const;
 
     /*! @brief Similar to setInputMEDDoubleArray() but for MEDStringArray.
      *
@@ -905,15 +821,6 @@ namespace ICoCo
      * @sa getOutputMEDDoubleArray()
      */
     virtual void getOutputMEDStringArray(const std::string& name, MEDStringArray& array) const;
-
-    /*! @brief Similar to updateOutputMEDDoubleArray() but for MEDStringArray.
-     *
-     * New in version 3 of ICoCo.
-     *
-     * @b WARNING: at the time of writing, MEDStringArray are not yet implemented anywhere.
-     * @sa updateOutputMEDDoubleArray()
-     */
-    virtual void updateOutputMEDStringArray(const std::string& name, MEDStringArray& array) const;
 
     // ******************************************************
     // section AlgebraicData insight.
@@ -967,29 +874,11 @@ namespace ICoCo
      *
      * @param[in] name name of the AlgebraicData that the caller requests from the code.
      * @param[out] data AlgebraicData object populated with the data read by the code.
-     * Any previous information in this object will be discarded.
+     * * If the provided AlgebraicData is adequate, data may be written in place.
      * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
      * @throws ICoCo::WrongArgument exception if the AlgebraicData name ('name' parameter) is invalid.
      */
     virtual void getAlgebraicData(const std::string& name, AlgebraicData& data) const;
-
-    /*! @brief (Optional) Update a previously retrieved AlgebraicData.
-     *
-     * New in version 3 of ICoCo.
-     *
-     * Values are set directly inside provided AlgebraicData. Calling this method is therefore more efficient
-     * than calling getAlgebraicData() each time. However, a previous call to getAlgebraicData() with the same
-     * name must have been done prior to this call.
-     *
-     * The code should check the consistency of the data object with the requested data (same number of elements, etc.).
-     *
-     * @param[in] name name of the AlgebraicData that the caller requests from the code.
-     * @param[out] data AlgebraicData object updated with the data read from the code.
-     * @throws ICoCo::WrongContext exception if called before initialize() or after terminate().
-     * @throws ICoCo::WrongArgument exception if the AlgebraicData name ('name' parameter) is invalid.
-     * @throws ICoCo::WrongArgument exception if the data object is inconsistent with the AlgebraicData being requested.
-     */
-    virtual void updateAlgebraicData(const std::string& name, AlgebraicData& data) const;
 
     // ******************************************************
     // section Scalar values insight.
